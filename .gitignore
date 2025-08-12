@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.py.class
+
+# Entornos virtuales
+.env
+.venv/
+env/
+venv/
+
+# Archivos de IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Compilados
+*.so
+
+# Cachés
+*.egg
+*.egg-info/
+dist/
+build/
+
