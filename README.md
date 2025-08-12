@@ -36,17 +36,21 @@ Editar
 
 ## 📦 Installation
 
+### 1. Clone the repository
 ```bash
-# 1. Clone the repository
 git clone https://github.com/your-username/your-backend-repo.git
 cd your-backend-repo
-
-# 2. Create and activate virtual environment
+```
+### 2. Create and activate virtual environment
+```bash
 python -m venv venv
 source venv/bin/activate   # On Windows: venv\Scripts\activate
+```
 
-# 3. Install dependencies
+### 3. Install dependencies
+```bash
 pip install -r requirements.txt
+```
 ▶️ Running the Server
 bash
 Copiar
