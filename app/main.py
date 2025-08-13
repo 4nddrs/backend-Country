@@ -8,8 +8,9 @@ app = FastAPI(title="backend-Country-API")
 @app.on_event("startup")
 async def on_startup():
     # Crear tablas si no existen, sin abrir sesiones adicionales
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # async with engine.begin() as conn:
+    #     await conn.run_sync(Base.metadata.create_all)
+    pass
 
 
 @app.on_event("shutdown")
