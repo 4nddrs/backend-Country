@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.database import engine, Base
-from app.routers import product
+from app.supabase_client import get_supabase  # ✅ usamos supabase en vez de engine/Base
+from app.routers import product, employee, employee_position, employee_role
 
 app = FastAPI(title="backend-Country-API")
 
@@ -14,21 +14,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# ✅ Startup: probar conexión a Supabase
 @app.on_event("startup")
 async def on_startup():
-    # Crear tablas si no existen, sin abrir sesiones adicionales
-    # async with engine.begin() as conn:
-    #     await conn.run_sync(Base.metadata.create_all)
-    pass
+    try:
+        supabase = await get_supabase()
+        response = await supabase.table("employee_role").select("*").limit(1).execute()
+        print("✅ Conexión con Supabase exitosa:", response.data)
+    except Exception as e:
+        print("❌ Error de conexión con Supabase:", str(e))
 
+
+# ✅ Shutdown: no hace falta cerrar nada en supabase-py
 @app.on_event("shutdown")
 async def shutdown():
-    # No necesitamos desconectar explícitamente con asyncpg + PgBouncer
     pass
 
+
+# Root endpoint
 @app.get("/")
 async def root():
-    return {"message": "API connected to Supabase DB!"}
+    return {"message": "API conectada a Supabase DB 🚀"}
+
 
 # Rutas
 app.include_router(product.router)
+app.include_router(employee.router)
+app.include_router(employee_position.router)
+app.include_router(employee_role.router)

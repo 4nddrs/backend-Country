@@ -1,41 +1,28 @@
-from sqlalchemy.future import select  
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.product import Product
+# app/crud/product.py
+from app.supabase_client import get_supabase
 from app.schemas.product import ProductCreate, ProductUpdate
 
+async def get_product(product_id: int):
+    supabase = await get_supabase()
+    result = await supabase.table("product").select("*").eq("id", product_id).single().execute()
+    return result.data if result.data else None
 
-async def get_product(db: AsyncSession, product_id: int):
-    result = await db.execute(select(Product).where(Product.id == product_id))
-    return result.scalars().first()
+async def get_products(skip: int = 0, limit: int = 100):
+    supabase = await get_supabase()
+    result = await supabase.table("product").select("*").range(skip, skip + limit - 1).execute()
+    return result.data if result.data else []
 
+async def create_product(product: ProductCreate):
+    supabase = await get_supabase()
+    result = await supabase.table("product").insert(product.model_dump()).execute()
+    return result.data[0] if result.data else None
 
-async def get_products(db: AsyncSession, skip: int = 0, limit: int = 100):
-    result = await db.execute(select(Product).offset(skip).limit(limit))
-    return result.scalars().all()
+async def update_product(product_id: int, product: ProductUpdate):
+    supabase = await get_supabase()
+    result = await supabase.table("product").update(product.model_dump(exclude_unset=True)).eq("id", product_id).execute()
+    return result.data[0] if result.data else None
 
-
-async def create_product(db: AsyncSession, product: ProductCreate):
-    db_product = Product(name=product.name)
-    db.add(db_product)
-    await db.commit()
-    await db.refresh(db_product)
-    return db_product
-
-
-async def update_product(db: AsyncSession, product_id: int, product: ProductUpdate):
-    db_product = await get_product(db, product_id)
-    if not db_product:
-        return None
-    db_product.name = product.name
-    await db.commit()
-    await db.refresh(db_product)
-    return db_product
-
-
-async def delete_product(db: AsyncSession, product_id: int):
-    db_product = await get_product(db, product_id)
-    if not db_product:
-        return None
-    await db.delete(db_product)
-    await db.commit()
-    return db_product
+async def delete_product(product_id: int):
+    supabase = await get_supabase()
+    result = await supabase.table("product").delete().eq("id", product_id).execute()
+    return result.data[0] if result.data else None

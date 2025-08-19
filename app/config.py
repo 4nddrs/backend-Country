@@ -1,1 +1,2 @@
-DATABASE_URL = "postgresql+asyncpg://postgres.dqhtzvkbgjhnjnmcixcp:CountryHipica1234@aws-0-us-east-2.pooler.supabase.com:6543/postgres"
+SUPABASE_URL = "https://dqhtzvkbgjhnjnmcixcp.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxaHR6dmtiZ2pobmpubWNpeGNwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NTAxNjAzOCwiZXhwIjoyMDcwNTkyMDM4fQ.VAGtVi21XIXZWRsX0lzfUIZXWZPwWOvkVgaPtPET6R0"

@@ -2,11 +2,11 @@ from sqlalchemy import Column, BigInteger, String, TIMESTAMP, func
 from app.supabase_client import Base
 
 
-class Product(Base):
-    __tablename__ = "product"
+class EmployeeRole(Base):
+    __tablename__ = "employee_role"
 
-    id = Column(BigInteger, primary_key=True, index=True)
+    idRoleEmployee = Column(BigInteger, primary_key=True, index=True)
     created_at = Column(
         TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
     )
-    name = Column(String, nullable=False)
+    nameRole = Column(String, nullable=False)
