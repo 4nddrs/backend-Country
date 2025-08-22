@@ -32,15 +32,6 @@ CREATE TABLE public.employee_role (
   nameRole character varying NOT NULL,
   CONSTRAINT employee_role_pkey PRIMARY KEY (idRoleEmployee)
 );
-CREATE TABLE public.employee_task (
-  idEmployeeTask bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  fk_idTask bigint NOT NULL,
-  fk_idEmployee bigint NOT NULL,
-  CONSTRAINT employee_task_pkey PRIMARY KEY (idEmployeeTask),
-  CONSTRAINT employee_task_fk_idTask_fkey FOREIGN KEY (fk_idTask) REFERENCES public.task(idTask),
-  CONSTRAINT employee_task_fk_idEmployee_fkey FOREIGN KEY (fk_idEmployee) REFERENCES public.employee(idEmployee)
-);
 CREATE TABLE public.food_provider (
   idFoodProvider bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -55,7 +46,7 @@ CREATE TABLE public.food_stock (
   foodName character varying NOT NULL,
   stock bigint NOT NULL,
   unitMeasurement numeric NOT NULL,
-  UnitPrice numeric NOT NULL,
+  unitPrice numeric NOT NULL,
   fk_idFoodProvider bigint NOT NULL,
   CONSTRAINT food_stock_pkey PRIMARY KEY (idFood),
   CONSTRAINT food_stock_fk_idFoodProvider_fkey FOREIGN KEY (fk_idFoodProvider) REFERENCES public.food_provider(idFoodProvider)
@@ -74,9 +65,9 @@ CREATE TABLE public.horse (
   fk_idVaccine bigint,
   fk_idEmployee bigint NOT NULL,
   CONSTRAINT horse_pkey PRIMARY KEY (idHorse),
-  CONSTRAINT horse_fk_idVaccine_fkey FOREIGN KEY (fk_idVaccine) REFERENCES public.vaccine(idVaccine),
   CONSTRAINT horse_fk_idEmployee_fkey FOREIGN KEY (fk_idEmployee) REFERENCES public.employee(idEmployee),
   CONSTRAINT horse_fk_idOwner_fkey FOREIGN KEY (fk_idOwner) REFERENCES public.owner(idOwner),
+  CONSTRAINT horse_fk_idVaccine_fkey FOREIGN KEY (fk_idVaccine) REFERENCES public.vaccine(idVaccine),
   CONSTRAINT horse_fk_idRace_fkey FOREIGN KEY (fk_idRace) REFERENCES public.race(idRace)
 );
 CREATE TABLE public.nutritionalPlan_horse (
@@ -107,8 +98,8 @@ CREATE TABLE public.nutritional_plan_details (
   fk_idFood bigint NOT NULL,
   fk_idNutritionalPlan bigint,
   CONSTRAINT nutritional_plan_details_pkey PRIMARY KEY (idDetail),
-  CONSTRAINT nutritional_plan_details_fk_idNutritionalPlan_fkey FOREIGN KEY (fk_idNutritionalPlan) REFERENCES public.nutritional_plan(idNutritionalPlan),
-  CONSTRAINT nutritional_plan_details_fk_idFood_fkey FOREIGN KEY (fk_idFood) REFERENCES public.food_stock(idFood)
+  CONSTRAINT nutritional_plan_details_fk_idFood_fkey FOREIGN KEY (fk_idFood) REFERENCES public.food_stock(idFood),
+  CONSTRAINT nutritional_plan_details_fk_idNutritionalPlan_fkey FOREIGN KEY (fk_idNutritionalPlan) REFERENCES public.nutritional_plan(idNutritionalPlan)
 );
 CREATE TABLE public.owner (
   idOwner bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -116,8 +107,8 @@ CREATE TABLE public.owner (
   name character varying NOT NULL,
   FirstName character varying NOT NULL,
   SecondName character varying,
-  ci smallint NOT NULL,
-  phoneNumber smallint NOT NULL,
+  ci bigint NOT NULL,
+  phoneNumber bigint NOT NULL,
   ownerPhoto bytea,
   CONSTRAINT owner_pkey PRIMARY KEY (idOwner)
 );
@@ -142,8 +133,10 @@ CREATE TABLE public.task (
   completionDate date NOT NULL,
   taskStatus character varying NOT NULL,
   fk_idTaskCategory bigint NOT NULL,
+  fk_idEmployee bigint,
   CONSTRAINT task_pkey PRIMARY KEY (idTask),
-  CONSTRAINT task_fk_idTaskCategory_fkey FOREIGN KEY (fk_idTaskCategory) REFERENCES public.task_category(idTaskCategory)
+  CONSTRAINT task_fk_idTaskCategory_fkey FOREIGN KEY (fk_idTaskCategory) REFERENCES public.task_category(idTaskCategory),
+  CONSTRAINT task_fk_idEmployee_fkey FOREIGN KEY (fk_idEmployee) REFERENCES public.employee(idEmployee)
 );
 CREATE TABLE public.task_category (
   idTaskCategory bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
