@@ -3,7 +3,7 @@
 This is the backend service for the project, built with **FastAPI**.  
 It provides a RESTful API to handle business logic, database operations, and integration with external services.
 ## 📖 Overview
-This backend is designed to be modular and scalable, allowing easy addition of new features and services.
+This backend is designed to be modular and scalable, allowing easy addition of new features and services...
 ---
 
 ## 📂 Project Structure

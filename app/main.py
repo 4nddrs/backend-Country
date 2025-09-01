@@ -12,7 +12,7 @@ from app.routers import (
     owner,
     race,
     horse,
-    nutritional_plan,
+    nutritional_plan, 
     nutritional_plan_horse,
     nutritional_plan_details,
     task_category,
