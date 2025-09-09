@@ -24,6 +24,12 @@ from app.routers import (
     employees_shiftem,
     erp_user,
     user_role,
+    expenses,
+    income,
+    owner_report_month,
+    total_control,
+    vaccination_plan,
+    vaccination_plan_application,
 )
 
 app = FastAPI(title="backend-Country-API")
@@ -86,3 +92,9 @@ app.include_router(shift_employed.router)
 app.include_router(employees_shiftem.router)
 app.include_router(erp_user.router)
 app.include_router(user_role.router)
+app.include_router(expenses.router)
+app.include_router(income.router)
+app.include_router(owner_report_month.router)
+app.include_router(total_control.router)
+app.include_router(vaccination_plan.router)
+app.include_router(vaccination_plan_application.router)

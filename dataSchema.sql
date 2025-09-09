@@ -13,7 +13,7 @@ CREATE TABLE public.alpha_control (
   salePrice numeric NOT NULL,
   income numeric NOT NULL,
   closingAmount text NOT NULL,
-  fk_idFoodProvider bigint,
+  fk_idFoodProvider bigint NOT NULL,
   CONSTRAINT alpha_control_pkey PRIMARY KEY (idAlphaControl),
   CONSTRAINT alpha_control_fk_idFoodProvider_fkey FOREIGN KEY (fk_idFoodProvider) REFERENCES public.food_provider(idFoodProvider)
 );
@@ -39,8 +39,8 @@ CREATE TABLE public.attention_horse (
   fk_idMedicine bigint,
   fk_idEmployee bigint NOT NULL,
   CONSTRAINT attention_horse_pkey PRIMARY KEY (idAttentionHorse),
-  CONSTRAINT attention_horse_fk_idEmployee_fkey FOREIGN KEY (fk_idEmployee) REFERENCES public.employee(idEmployee),
   CONSTRAINT attention_horse_fk_idHorse_fkey FOREIGN KEY (fk_idHorse) REFERENCES public.horse(idHorse),
+  CONSTRAINT attention_horse_fk_idEmployee_fkey FOREIGN KEY (fk_idEmployee) REFERENCES public.employee(idEmployee),
   CONSTRAINT attention_horse_fk_idMedicine_fkey FOREIGN KEY (fk_idMedicine) REFERENCES public.medicine(idMedicine)
 );
 CREATE TABLE public.employee (
@@ -97,10 +97,10 @@ CREATE TABLE public.erp_user (
   fk_idAuthUser uuid,
   fk_idUserRole bigint NOT NULL,
   CONSTRAINT erp_user_pkey PRIMARY KEY (idErpUser),
-  CONSTRAINT erp_user_fk_idAuthUser_fkey FOREIGN KEY (fk_idAuthUser) REFERENCES auth.users(id),
-  CONSTRAINT erp_user_fk_idOwner_fkey FOREIGN KEY (fk_idOwner) REFERENCES public.owner(idOwner),
   CONSTRAINT erp_user_fk_idUserRole_fkey FOREIGN KEY (fk_idUserRole) REFERENCES public.user_role(idUserRole),
-  CONSTRAINT erp_user_fk_idEmployee_fkey FOREIGN KEY (fk_idEmployee) REFERENCES public.employee(idEmployee)
+  CONSTRAINT erp_user_fk_idAuthUser_fkey FOREIGN KEY (fk_idAuthUser) REFERENCES auth.users(id),
+  CONSTRAINT erp_user_fk_idEmployee_fkey FOREIGN KEY (fk_idEmployee) REFERENCES public.employee(idEmployee),
+  CONSTRAINT erp_user_fk_idOwner_fkey FOREIGN KEY (fk_idOwner) REFERENCES public.owner(idOwner)
 );
 CREATE TABLE public.expenses (
   idExpenses bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -148,9 +148,9 @@ CREATE TABLE public.horse (
   fk_idOwner bigint NOT NULL,
   fl_idNutritionalPlan bigint,
   CONSTRAINT horse_pkey PRIMARY KEY (idHorse),
+  CONSTRAINT horse_fl_idNutritionalPlan_fkey FOREIGN KEY (fl_idNutritionalPlan) REFERENCES public.nutritional_plan(idNutritionalPlan),
   CONSTRAINT horse_fk_idRace_fkey FOREIGN KEY (fk_idRace) REFERENCES public.race(idRace),
-  CONSTRAINT horse_fk_idOwner_fkey FOREIGN KEY (fk_idOwner) REFERENCES public.owner(idOwner),
-  CONSTRAINT horse_fl_idNutritionalPlan_fkey FOREIGN KEY (fl_idNutritionalPlan) REFERENCES public.nutritional_plan(idNutritionalPlan)
+  CONSTRAINT horse_fk_idOwner_fkey FOREIGN KEY (fk_idOwner) REFERENCES public.owner(idOwner)
 );
 CREATE TABLE public.income (
   idIncome bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -182,18 +182,6 @@ CREATE TABLE public.medicine (
   CONSTRAINT medicine_pkey PRIMARY KEY (idMedicine),
   CONSTRAINT medicine_fk_idHorse_fkey FOREIGN KEY (fk_idHorse) REFERENCES public.horse(idHorse)
 );
-CREATE TABLE public.notification (
-  idNotification bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  message character varying NOT NULL,
-  dateSent timestamp without time zone NOT NULL,
-  attachmentURL bytea,
-  fk_idHorse bigint NOT NULL,
-  fk_idOwner bigint NOT NULL,
-  CONSTRAINT notification_pkey PRIMARY KEY (idNotification),
-  CONSTRAINT notification_fk_idHorse_fkey FOREIGN KEY (fk_idHorse) REFERENCES public.horse(idHorse),
-  CONSTRAINT notification_fk_idOwner_fkey FOREIGN KEY (fk_idOwner) REFERENCES public.owner(idOwner)
-);
 CREATE TABLE public.nutritional_plan (
   idNutritionalPlan bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -214,8 +202,8 @@ CREATE TABLE public.nutritional_plan_details (
   fk_idFood bigint NOT NULL,
   fk_idNutritionalPlan bigint NOT NULL,
   CONSTRAINT nutritional_plan_details_pkey PRIMARY KEY (idDetail),
-  CONSTRAINT nutritional_plan_details_fk_idFood_fkey FOREIGN KEY (fk_idFood) REFERENCES public.food_stock(idFood),
-  CONSTRAINT nutritional_plan_details_fk_idNutritionalPlan_fkey FOREIGN KEY (fk_idNutritionalPlan) REFERENCES public.nutritional_plan(idNutritionalPlan)
+  CONSTRAINT nutritional_plan_details_fk_idNutritionalPlan_fkey FOREIGN KEY (fk_idNutritionalPlan) REFERENCES public.nutritional_plan(idNutritionalPlan),
+  CONSTRAINT nutritional_plan_details_fk_idFood_fkey FOREIGN KEY (fk_idFood) REFERENCES public.food_stock(idFood)
 );
 CREATE TABLE public.owner (
   idOwner bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -295,8 +283,8 @@ CREATE TABLE public.task (
   fk_idTaskCategory bigint NOT NULL,
   fk_idEmployee bigint,
   CONSTRAINT task_pkey PRIMARY KEY (idTask),
-  CONSTRAINT task_fk_idTaskCategory_fkey FOREIGN KEY (fk_idTaskCategory) REFERENCES public.task_category(idTaskCategory),
-  CONSTRAINT task_fk_idEmployee_fkey FOREIGN KEY (fk_idEmployee) REFERENCES public.employee(idEmployee)
+  CONSTRAINT task_fk_idEmployee_fkey FOREIGN KEY (fk_idEmployee) REFERENCES public.employee(idEmployee),
+  CONSTRAINT task_fk_idTaskCategory_fkey FOREIGN KEY (fk_idTaskCategory) REFERENCES public.task_category(idTaskCategory)
 );
 CREATE TABLE public.task_category (
   idTaskCategory bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -354,6 +342,6 @@ CREATE TABLE public.vaccination_plan_application (
   fk_idEmployee bigint NOT NULL,
   CONSTRAINT vaccination_plan_application_pkey PRIMARY KEY (idVaccinationPlanApplication),
   CONSTRAINT vaccination plan application_fk_idHorse_fkey FOREIGN KEY (fk_idHorse) REFERENCES public.horse(idHorse),
-  CONSTRAINT vaccination plan application_fk_idVaccinationPlan_fkey FOREIGN KEY (fk_idVaccinationPlan) REFERENCES public.vaccination_plan(idVaccinationPlan),
-  CONSTRAINT vaccination plan application_fk_idEmployee_fkey FOREIGN KEY (fk_idEmployee) REFERENCES public.employee(idEmployee)
+  CONSTRAINT vaccination plan application_fk_idEmployee_fkey FOREIGN KEY (fk_idEmployee) REFERENCES public.employee(idEmployee),
+  CONSTRAINT vaccination plan application_fk_idVaccinationPlan_fkey FOREIGN KEY (fk_idVaccinationPlan) REFERENCES public.vaccination_plan(idVaccinationPlan)
 );
