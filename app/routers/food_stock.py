@@ -3,7 +3,7 @@ from typing import List
 from app.crud import food_stock as crud_food_stock
 from app.schemas import food_stock as schemas_food_stock
 
-router = APIRouter(prefix="/food-stocks", tags=["food_stocks"])
+router = APIRouter(prefix="/food-stock", tags=["food_stock"])
 
 
 @router.post(

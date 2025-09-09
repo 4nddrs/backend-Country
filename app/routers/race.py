@@ -3,7 +3,7 @@ from typing import List
 from app.crud import race as crud_race
 from app.schemas import race as schemas_race
 
-router = APIRouter(prefix="/races", tags=["races"])
+router = APIRouter(prefix="/race", tags=["race"])
 
 
 @router.post("/", response_model=schemas_race.Race, status_code=status.HTTP_201_CREATED)

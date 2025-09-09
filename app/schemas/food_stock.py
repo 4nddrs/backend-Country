@@ -7,7 +7,8 @@ class FoodStockBase(BaseModel):
     foodName: str
     stock: int
     unitMeasurement: float
-    unitPrice: float
+    minStock: int
+    maxStock: int
     fk_idFoodProvider: int
 
 
@@ -19,7 +20,8 @@ class FoodStockUpdate(BaseModel):
     foodName: Optional[str] = None
     stock: Optional[int] = None
     unitMeasurement: Optional[float] = None
-    unitPrice: Optional[float] = None
+    minStock: Optional[int] = None
+    maxStock: Optional[int] = None
     fk_idFoodProvider: Optional[int] = None
 
 
@@ -28,7 +30,7 @@ class FoodStockInDBBase(FoodStockBase):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class FoodStock(FoodStockInDBBase):

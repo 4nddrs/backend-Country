@@ -5,8 +5,9 @@ from typing import Optional
 
 class NutritionalPlanBase(BaseModel):
     name: str
-    startDate: date
+    assignmentDate: date 
     endDate: date
+    state: str
     description: Optional[str] = None
 
 
@@ -14,8 +15,12 @@ class NutritionalPlanCreate(NutritionalPlanBase):
     pass
 
 
-class NutritionalPlanUpdate(NutritionalPlanBase):
-    pass
+class NutritionalPlanUpdate(BaseModel):
+    name: Optional[str] = None
+    assignmentDate: Optional[date] = None
+    endDate: Optional[date] = None
+    state: Optional[str] = None
+    description: Optional[str] = None
 
 
 class NutritionalPlanInDBBase(NutritionalPlanBase):
@@ -23,7 +28,7 @@ class NutritionalPlanInDBBase(NutritionalPlanBase):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class NutritionalPlan(NutritionalPlanInDBBase):

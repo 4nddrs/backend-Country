@@ -2,21 +2,28 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.supabase_client import get_supabase  # ✅ usamos supabase en vez de engine/Base
 from app.routers import (
-    product,
     employee,
     employee_position,
-    employee_role,
     food_provider,
     food_stock,
-    vaccine,
     owner,
     race,
     horse,
-    nutritional_plan, 
-    nutritional_plan_horse,
+    nutritional_plan,
     nutritional_plan_details,
     task_category,
     task,
+    alpha_control,
+    scheduled_procedure,
+    application_procedure,
+    medicine,
+    attention_horse,
+    employee_absence,
+    shift_type,
+    shift_employed,
+    employees_shiftem,
+    erp_user,
+    user_role,
 )
 
 app = FastAPI(title="backend-Country-API")
@@ -36,8 +43,10 @@ app.add_middleware(
 async def on_startup():
     try:
         supabase = await get_supabase()
-        response = await supabase.table("employee_role").select("*").limit(1).execute()
-        print("✅ Conexión con Supabase exitosa:", response.data)
+        response = (
+            await supabase.table("employee_position").select("*").limit(1).execute()
+        )
+        print("✅ Conexión con Supabase exitosa")
     except Exception as e:
         print("❌ Error de conexión con Supabase:", str(e))
 
@@ -55,18 +64,25 @@ async def root():
 
 
 # Rutas
-app.include_router(product.router)
 app.include_router(employee.router)
 app.include_router(employee_position.router)
-app.include_router(employee_role.router)
 app.include_router(food_provider.router)
 app.include_router(food_stock.router)
-app.include_router(vaccine.router)
 app.include_router(owner.router)
 app.include_router(race.router)
 app.include_router(horse.router)
 app.include_router(nutritional_plan.router)
-app.include_router(nutritional_plan_horse.router)
 app.include_router(nutritional_plan_details.router)
 app.include_router(task_category.router)
 app.include_router(task.router)
+app.include_router(alpha_control.router)
+app.include_router(scheduled_procedure.router)
+app.include_router(application_procedure.router)
+app.include_router(medicine.router)
+app.include_router(attention_horse.router)
+app.include_router(employee_absence.router)
+app.include_router(shift_type.router)
+app.include_router(shift_employed.router)
+app.include_router(employees_shiftem.router)
+app.include_router(erp_user.router)
+app.include_router(user_role.router)

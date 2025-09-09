@@ -14,7 +14,6 @@ class EmployeeBase(BaseModel):
     exitTime: datetime
     salary: int
     status: Optional[bool] = False
-    fk_idRoleEmployee: int
     fk_idPositionEmployee: int
 
 
@@ -31,7 +30,7 @@ class EmployeeInDBBase(EmployeeBase):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class Employee(EmployeeInDBBase):

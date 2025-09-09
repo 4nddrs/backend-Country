@@ -3,7 +3,7 @@ from typing import List
 from app.crud import owner as crud_owner
 from app.schemas import owner as schemas_owner
 
-router = APIRouter(prefix="/owners", tags=["owners"])
+router = APIRouter(prefix="/owner", tags=["owner"])
 
 
 @router.post(
