@@ -4,17 +4,15 @@ from app.supabase_client import get_supabase
 from app.schemas.horse import HorseCreate, HorseUpdate
 
 
-def serialize_horse(horse):
+def serialize_horse(horse: dict):
     """Convierte date/datetime a string y bytes a Base64 para JSON"""
-    data = horse.model_dump(exclude_unset=True)
+    data = horse.copy()  # evitar mutar directamente el dict original
 
     for key, value in data.items():
         if isinstance(value, (date, datetime)):
             data[key] = value.isoformat()
         elif isinstance(value, bytes):
-            data[key] = base64.b64encode(value).decode(
-                "utf-8"
-            )  # bytes -> Base64 string
+            data[key] = base64.b64encode(value).decode("utf-8")
 
     return data
 
@@ -46,7 +44,7 @@ async def create_horse(horse: HorseCreate):
     supabase = await get_supabase()
     horse_dict = horse.model_dump(mode="json")
 
-    # Foto en Base64 → bytes
+    # Foto en Base64 → bytes antes de insertar
     if horse_dict.get("horsePhoto"):
         horse_dict["horsePhoto"] = base64.b64decode(horse_dict["horsePhoto"])
 
@@ -58,6 +56,7 @@ async def update_horse(idHorse: int, horse: HorseUpdate):
     supabase = await get_supabase()
     horse_dict = horse.model_dump(mode="json", exclude_unset=True)
 
+    # Foto en Base64 → bytes antes de actualizar
     if horse_dict.get("horsePhoto"):
         horse_dict["horsePhoto"] = base64.b64decode(horse_dict["horsePhoto"])
 
