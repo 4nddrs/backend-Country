@@ -44,9 +44,9 @@ async def create_horse(horse: HorseCreate):
     supabase = await get_supabase()
     horse_dict = horse.model_dump(mode="json")
 
-    # Foto en Base64 → bytes antes de insertar
-    if horse_dict.get("horsePhoto"):
-        horse_dict["horsePhoto"] = base64.b64decode(horse_dict["horsePhoto"])
+    # ⚡ NO decodificamos la foto, ya viene en Base64 y JSON lo acepta
+    # if horse_dict.get("horsePhoto"):
+    #     horse_dict["horsePhoto"] = base64.b64decode(horse_dict["horsePhoto"])
 
     result = await supabase.table("horse").insert(horse_dict).execute()
     return serialize_horse(result.data[0]) if result.data else None
@@ -56,9 +56,9 @@ async def update_horse(idHorse: int, horse: HorseUpdate):
     supabase = await get_supabase()
     horse_dict = horse.model_dump(mode="json", exclude_unset=True)
 
-    # Foto en Base64 → bytes antes de actualizar
-    if horse_dict.get("horsePhoto"):
-        horse_dict["horsePhoto"] = base64.b64decode(horse_dict["horsePhoto"])
+    # ⚡ NO decodificamos la foto
+    # if horse_dict.get("horsePhoto"):
+    #     horse_dict["horsePhoto"] = base64.b64decode(horse_dict["horsePhoto"])
 
     result = (
         await supabase.table("horse")
