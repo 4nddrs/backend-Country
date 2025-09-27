@@ -37,12 +37,29 @@ from app.routers import (
 app = FastAPI(title="backend-Country-API")
 
 # ⚡ Middleware CORS
+#app.add_middleware(
+    #CORSMiddleware,
+    #allow_origins=["*"],  # Permite cualquier dominio (para pruebas)
+    #allow_credentials=True,
+    #allow_methods=["*"],
+    #allow_headers=["*"],
+#)
+
+app = FastAPI()
+
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    # agrega tu dominio de producción si aplica, ej.:
+    # "https://tu-frontend.com",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permite cualquier dominio (para pruebas)
+    allow_origins=origins,       # o ["*"] mientras desarrollas
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],         # GET, POST, PUT, DELETE, OPTIONS...
+    allow_headers=["*"],         # Content-Type, Authorization, etc.
 )
 
 
