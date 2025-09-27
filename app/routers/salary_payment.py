@@ -1,73 +1,45 @@
-# app/routers/salary_payments.py
-from fastapi import APIRouter, HTTPException, status, Query
-from typing import List, Optional
+from fastapi import APIRouter, HTTPException, status
+from typing import List
 
 from app.crud import salary_payment as crud_salary
-from app.schemas.salary_payment import (
-    SalaryPayment, SalaryPaymentCreate, SalaryPaymentUpdate,
-    SalaryPaymentList, EmployeeLite
-)
+from app.schemas import salary_payment as schemas_salary
 
-router = APIRouter(prefix="/salary-payments", tags=["salary-payments"])
+router = APIRouter(prefix="/salary-payments", tags=["salary_payments"])
 
-# -------- Empleados (para combos) --------
-@router.get("/employees", response_model=List[EmployeeLite])
-async def list_employees_for_form(
-    search: Optional[str] = None,
-    limit: int = Query(50, ge=1, le=5000),
-):
-    return await crud_salary.list_employees_for_payment(search=search, limit=limit)
 
-# ====================== CRUD ======================
-
-# Create (acepta /salary-payments y /salary-payments/)
-@router.post("", response_model=SalaryPayment, status_code=status.HTTP_201_CREATED)
-@router.post("/", response_model=SalaryPayment, status_code=status.HTTP_201_CREATED)
-async def create_salary_payment(salary_in: SalaryPaymentCreate):
-    sp = await crud_salary.create_salary_payment(salary_in)
-    if not sp:
+@router.post("/", response_model=schemas_salary.SalaryPayment, status_code=status.HTTP_201_CREATED)
+async def create_salary_payment(salary_in: schemas_salary.SalaryPaymentCreate):
+    created = await crud_salary.create_salary_payment(salary_in)
+    if not created:
         raise HTTPException(status_code=400, detail="Salary payment could not be created")
-    return sp
+    return created
 
-# List (acepta con/sin barra final)
-@router.get("", response_model=SalaryPaymentList)
-@router.get("/", response_model=SalaryPaymentList)
-async def list_salary_payments(
-    page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=200),
-    employeeId: Optional[int] = None,
-    state: Optional[str] = None,
-    month: Optional[str] = None,              # YYYY-MM (sobre registrationDate)
-    orderBy: str = "registrationDate",
-    order: str = "desc",
-):
-    return await crud_salary.list_salary_payments(
-        page=page,
-        limit=limit,
-        employeeId=employeeId,
-        state=state,
-        month=month,
-        orderBy=orderBy,
-        order=order,
-    )
 
-@router.get("/{salary_id}", response_model=SalaryPayment)
+@router.get("/", response_model=List[schemas_salary.SalaryPayment])
+async def list_salary_payments(skip: int = 0, limit: int = 100):
+    rows = await crud_salary.get_salary_payments(skip=skip, limit=limit)
+    return rows
+
+
+@router.get("/{salary_id}", response_model=schemas_salary.SalaryPayment)
 async def get_salary_payment(salary_id: int):
-    sp = await crud_salary.get_salary_payment(salary_id)
-    if not sp:
+    row = await crud_salary.get_salary_payment(salary_id)
+    if not row:
         raise HTTPException(status_code=404, detail="Salary payment not found")
-    return sp
+    return row
 
-@router.put("/{salary_id}", response_model=SalaryPayment)
-async def update_salary_payment(salary_id: int, salary_in: SalaryPaymentUpdate):
-    sp = await crud_salary.update_salary_payment(salary_id, salary_in)
-    if not sp:
+
+@router.put("/{salary_id}", response_model=schemas_salary.SalaryPayment)
+async def update_salary_payment(salary_id: int, salary_in: schemas_salary.SalaryPaymentUpdate):
+    updated = await crud_salary.update_salary_payment(salary_id, salary_in)
+    if not updated:
         raise HTTPException(status_code=404, detail="Salary payment not found")
-    return sp
+    return updated
 
-@router.delete("/{salary_id}", response_model=SalaryPayment)
+
+@router.delete("/{salary_id}", response_model=schemas_salary.SalaryPayment)
 async def delete_salary_payment(salary_id: int):
-    sp = await crud_salary.delete_salary_payment(salary_id)
-    if not sp:
+    deleted = await crud_salary.delete_salary_payment(salary_id)
+    if not deleted:
         raise HTTPException(status_code=404, detail="Salary payment not found")
-    return sp
+    return deleted
