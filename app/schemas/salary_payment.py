@@ -1,3 +1,4 @@
+# app/schemas/salary_payment.py
 from pydantic import BaseModel, Field
 from datetime import datetime, date
 from decimal import Decimal
@@ -11,48 +12,46 @@ class EmployeeLite(BaseModel):
     positionName: Optional[str] = None
     salary: Decimal
 
-# ====== SalaryPayment ======
-class SalaryPaymentBase(BaseModel):
+# ====== CREATE / UPDATE ======
+class SalaryPaymentCreate(BaseModel):
     amount: Decimal = Field(..., gt=0)
     state: str
-    # <-- ahora opcional; el backend/BD la setean si no llega
-    registrationDate: Optional[datetime] = None
     paymentDate: Optional[date] = None
     fk_idEmployee: int
-
-class SalaryPaymentCreate(SalaryPaymentBase):
-    # sin cambios: al heredar, registrationDate ya es opcional
-    pass
+    # 👈 NO incluimos registrationDate aquí
 
 class SalaryPaymentUpdate(BaseModel):
     amount: Optional[Decimal] = Field(None, gt=0)
     state: Optional[str] = None
-    registrationDate: Optional[datetime] = None
+    registrationDate: Optional[datetime] = None   # se puede editar si quisieras
     paymentDate: Optional[date] = None
     fk_idEmployee: Optional[int] = None
 
-class SalaryPaymentInDBBase(SalaryPaymentBase):
+# ====== MODELOS DE RESPUESTA ======
+class SalaryPaymentInDBBase(BaseModel):
     idSalaryPayment: int
     created_at: datetime
+    amount: Decimal
+    state: str
+    registrationDate: datetime
+    paymentDate: Optional[date] = None
     updateDate: datetime
+    fk_idEmployee: int
 
     class Config:
         from_attributes = True
 
 class SalaryPayment(SalaryPaymentInDBBase):
-    # empleado embebido para el front
     employee: Optional[EmployeeLite] = None
 
-# ====== Listado paginado ======
 class SalaryPaymentList(BaseModel):
     items: List[SalaryPayment]
     total: int
     page: int
     limit: int
 
-# ====== Resumen mensual / cierre ======
 class MonthSummary(BaseModel):
-    month: str          # "YYYY-MM"
+    month: str
     totalAmount: Decimal
     count: int
 

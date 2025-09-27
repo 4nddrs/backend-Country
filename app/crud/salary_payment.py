@@ -1,9 +1,9 @@
-# app/crud/salary_payment.py
 import base64
 from datetime import datetime, date
 from calendar import monthrange
 from decimal import Decimal
 from typing import Optional, Tuple
+from datetime import datetime, date, timezone
 
 from app.supabase_client import get_supabase
 from app.schemas.salary_payment import (
@@ -50,8 +50,8 @@ def _month_range(month_str: str) -> Tuple[date, date]:
 async def create_salary_payment(payload: SalaryPaymentCreate):
     sb = await get_supabase()
 
-    # Asegurar registrationDate por si no llega desde el front
-    reg_dt: datetime = payload.registrationDate or datetime.utcnow()
+    # Siempre autogenerar registrationDate en backend
+    reg_dt = datetime.now(timezone.utc)
 
     # Autocompletar paymentDate si viene PAID sin fecha
     payment_date = payload.paymentDate
@@ -61,7 +61,7 @@ async def create_salary_payment(payload: SalaryPaymentCreate):
     to_insert = payload.model_dump(mode="json")
     to_insert["registrationDate"] = reg_dt.isoformat()
     to_insert["paymentDate"] = payment_date
-    to_insert["updateDate"] = datetime.utcnow().isoformat()
+    to_insert["updateDate"] = datetime.now(timezone.utc).isoformat()
 
     result = (
         await sb.table("salary_payment")
@@ -74,6 +74,7 @@ async def create_salary_payment(payload: SalaryPaymentCreate):
         .execute()
     )
     return _serialize_row(result.data) if result.data else None
+
 
 async def get_salary_payment(idSalaryPayment: int):
     sb = await get_supabase()
@@ -173,7 +174,7 @@ async def update_salary_payment(idSalaryPayment: int, payload: SalaryPaymentUpda
                 reg_date = reg.date().isoformat()
             update_dict["paymentDate"] = reg_date
 
-    update_dict["updateDate"] = datetime.utcnow().isoformat()
+    update_dict["updateDate"] = datetime.now(timezone.utc).isoformat()
 
     result = (
         await sb.table("salary_payment")
