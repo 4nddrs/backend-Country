@@ -3,24 +3,31 @@ from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional, List
 
-# ===== CRUD base =====
+# ====== Empleado (para autocompletar / respuesta) ======
+class EmployeeLite(BaseModel):
+    idEmployee: int
+    fullName: str
+    ci: int
+    positionName: Optional[str] = None
+    salary: Decimal
+
+# ====== SalaryPayment ======
 class SalaryPaymentBase(BaseModel):
-    amount: Decimal
+    amount: Decimal = Field(..., gt=0)
     state: str
-    registrationDate: datetime           # timestamp (sin zona)
-    paymentDate: Optional[date] = None   # date (opcional)
+    registrationDate: datetime
+    paymentDate: Optional[date] = None
     fk_idEmployee: int
 
 class SalaryPaymentCreate(SalaryPaymentBase):
-    pass  # updateDate lo setea el backend
+    pass
 
 class SalaryPaymentUpdate(BaseModel):
-    amount: Optional[Decimal] = None
+    amount: Optional[Decimal] = Field(None, gt=0)
     state: Optional[str] = None
     registrationDate: Optional[datetime] = None
     paymentDate: Optional[date] = None
     fk_idEmployee: Optional[int] = None
-    updateDate: Optional[datetime] = None
 
 class SalaryPaymentInDBBase(SalaryPaymentBase):
     idSalaryPayment: int
@@ -31,30 +38,22 @@ class SalaryPaymentInDBBase(SalaryPaymentBase):
         from_attributes = True
 
 class SalaryPayment(SalaryPaymentInDBBase):
-    pass
+    # Se agrega el empleado embebido para el front
+    employee: Optional[EmployeeLite] = None
 
+# ====== Listado paginado ======
+class SalaryPaymentList(BaseModel):
+    items: List[SalaryPayment]
+    total: int
+    page: int
+    limit: int
 
-# ===== Reporte / cierre de nómina =====
-class SalaryMonthSummaryItem(BaseModel):
-    employee_id: int = Field(..., alias="fk_idEmployee")
-    employee_name: str
-    total_amount: Decimal
-    count_payments: int
+# ====== Resumen mensual / cierre ======
+class MonthSummary(BaseModel):
+    month: str          # "YYYY-MM"
+    totalAmount: Decimal
+    count: int
 
-class SalaryMonthSummaryOut(BaseModel):
-    period_month: str            # YYYY-MM
-    items: List[SalaryMonthSummaryItem]
-    grand_total: Decimal
-    total_records: int
-
-class ClosePayrollRequest(BaseModel):
-    period_month: str            # YYYY-MM
-    create_expense: bool = True
-    expense_date: Optional[date] = None        # por defecto hoy
-    expense_description: Optional[str] = None  # por defecto "Nómina mes {YYYY-MM}"
-
-class ClosePayrollResult(BaseModel):
-    period_month: str
-    updated_count: int
-    total_amount: Decimal
-    expense_id: Optional[int] = None
+class CloseMonthResponse(MonthSummary):
+    expenseCreated: bool
+    expenseId: Optional[int] = None

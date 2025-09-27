@@ -1,170 +1,274 @@
+import base64
 from datetime import datetime, date
+from calendar import monthrange
 from decimal import Decimal
-from typing import List, Dict, Optional, Tuple
-from collections import defaultdict
+from typing import Optional, Tuple
 
 from app.supabase_client import get_supabase
 from app.schemas.salary_payment import (
     SalaryPaymentCreate, SalaryPaymentUpdate,
-    SalaryMonthSummaryOut, SalaryMonthSummaryItem,
-    ClosePayrollRequest, ClosePayrollResult
 )
 
-TABLE = "salary_payment"
-EMP_TABLE = "employee"
-EXP_TABLE = "expenses"
+# --------- Utilidades de serialización ----------
+def _serialize_row(row: dict):
+    """Convierte date/datetime a string y bytea->Base64; arma 'employee' con positionName."""
+    if not row:
+        return None
+    data = {**row}
 
-def _month_bounds(period_month: str) -> Tuple[date, date, str]:
-    y, m = map(int, period_month.split("-"))
-    start = date(y, m, 1)
-    # siguiente mes
-    end = date(y + (m // 12), (m % 12) + 1, 1)
-    return start, end, f"{y:04d}-{m:02d}"
+    # Convertir fechas/bytes
+    for k, v in list(data.items()):
+        if isinstance(v, (date, datetime)):
+            data[k] = v.isoformat()
+        elif isinstance(v, (bytes, bytearray)):
+            data[k] = base64.b64encode(v).decode("utf-8")
 
-# ===== CRUD básico =====
-async def get_salary_payment(id_salary_payment: int):
-    sb = await get_supabase()
-    res = (await sb.table(TABLE).select("*")
-           .eq("idSalaryPayment", id_salary_payment).single().execute())
-    return res.data if res.data else None
-
-async def get_salary_payments(skip: int = 0, limit: int = 100):
-    sb = await get_supabase()
-    res = (await sb.table(TABLE).select("*")
-           .order("idSalaryPayment", desc=True)
-           .range(skip, skip + limit - 1).execute())
-    return res.data or []
-
-async def create_salary_payment(data_in: SalaryPaymentCreate):
-    sb = await get_supabase()
-    payload = data_in.model_dump(mode="json")
-    payload["updateDate"] = datetime.utcnow().isoformat(timespec="seconds")
-    res = await sb.table(TABLE).insert(payload).execute()
-    return res.data[0] if res.data else None
-
-async def update_salary_payment(id_salary_payment: int, data_in: SalaryPaymentUpdate):
-    sb = await get_supabase()
-    payload = data_in.model_dump(mode="json", exclude_unset=True)
-    if not payload.get("updateDate"):
-        payload["updateDate"] = datetime.utcnow().isoformat(timespec="seconds")
-    res = (await sb.table(TABLE).update(payload)
-           .eq("idSalaryPayment", id_salary_payment).execute())
-    return res.data[0] if res.data else None
-
-async def delete_salary_payment(id_salary_payment: int):
-    sb = await get_supabase()
-    res = (await sb.table(TABLE).delete()
-           .eq("idSalaryPayment", id_salary_payment).execute())
-    return res.data[0] if res.data else None
-
-
-# ====== Resumen mensual ======
-async def salary_month_summary(period_month: str) -> SalaryMonthSummaryOut:
-    start, end, tag = _month_bounds(period_month)
-    sb = await get_supabase()
-
-    # obtén pagos del mes (por registrationDate)
-    pay = (await sb.table(TABLE).select(
-            "idSalaryPayment,amount,fk_idEmployee,registrationDate,state")
-           .gte("registrationDate", start.isoformat())
-           .lt("registrationDate", end.isoformat())
-           .execute()).data or []
-
-    # agrupar por empleado
-    sums: Dict[int, Dict[str, Decimal | int]] = defaultdict(lambda: {
-        "total": Decimal("0"),
-        "count": 0
-    })
-    emp_ids = set()
-    for p in pay:
-        eid = int(p["fk_idEmployee"])
-        emp_ids.add(eid)
-        amt = Decimal(str(p.get("amount") or "0"))
-        sums[eid]["total"] += amt
-        sums[eid]["count"] += 1
-
-    # nombres de empleados
-    names: Dict[int, str] = {}
-    if emp_ids:
-        emp_res = (await sb.table(EMP_TABLE)
-                   .select("idEmployee,fullName")
-                   .in_("idEmployee", list(emp_ids)).execute()).data or []
-        for e in emp_res:
-            names[int(e["idEmployee"])] = e.get("fullName", str(e["idEmployee"]))
-
-    items: List[SalaryMonthSummaryItem] = []
-    grand = Decimal("0")
-    total_records = 0
-    for eid, ag in sums.items():
-        total = Decimal(ag["total"])
-        count = int(ag["count"])
-        grand += total
-        total_records += count
-        items.append(SalaryMonthSummaryItem(
-            fk_idEmployee=eid,
-            employee_name=names.get(eid, str(eid)),
-            total_amount=total,
-            count_payments=count
-        ))
-
-    # ordenar por total descendente
-    items.sort(key=lambda x: x.total_amount, reverse=True)
-
-    return SalaryMonthSummaryOut(
-        period_month=tag,
-        items=items,
-        grand_total=grand,
-        total_records=total_records
-    )
-
-
-# ====== Cerrar nómina (crear expense + marcar PAGADO) ======
-async def close_month_payroll(req: ClosePayrollRequest) -> ClosePayrollResult:
-    start, end, tag = _month_bounds(req.period_month)
-    sb = await get_supabase()
-
-    # pagos del mes sin PAGAR (o todos? tomamos los no pagados)
-    pay_q = (await sb.table(TABLE).select(
-                "idSalaryPayment,amount")
-             .gte("registrationDate", start.isoformat())
-             .lt("registrationDate", end.isoformat())
-             .neq("state", "PAGADO")
-             .execute())
-    payments = pay_q.data or []
-    if not payments:
-        return ClosePayrollResult(
-            period_month=tag, updated_count=0, total_amount=Decimal("0"), expense_id=None
-        )
-
-    total = sum(Decimal(str(p["amount"])) for p in payments)
-    now_iso = datetime.utcnow().isoformat(timespec="seconds")
-
-    # 1) marcar pagos como PAGADO
-    ids = [p["idSalaryPayment"] for p in payments]
-    # Supabase no admite update masivo con lista directamente en algunos clientes;
-    # hacemos in() + update
-    _ = (await sb.table(TABLE).update({
-            "state": "PAGADO",
-            "paymentDate": (req.expense_date or date.today()).isoformat(),
-            "updateDate": now_iso
-         }).in_("idSalaryPayment", ids).execute())
-
-    expense_id: Optional[int] = None
-    if req.create_expense:
-        desc = req.expense_description or f"Nómina mes {tag}"
-        exp_payload = {
-            "date": (req.expense_date or date.today()).isoformat(),
-            "description": desc,
-            "AmountBsCaptureType": str(total),
-            "period": start.isoformat()
+    # Embedding de empleado con posición (depende del select embebido)
+    emp = data.get("employee") or data.get("fk_idEmployee")
+    # Cuando usamos select('*, employee:fk_idEmployee(...)') llega como key 'employee'
+    if isinstance(emp, dict):
+        pos = emp.get("employee_position") or emp.get("fk_idPositionEmployee")
+        positionName = None
+        if isinstance(pos, dict):
+            positionName = pos.get("namePosition")
+        data["employee"] = {
+            "idEmployee": emp.get("idEmployee"),
+            "fullName": emp.get("fullName"),
+            "ci": emp.get("ci"),
+            "salary": emp.get("salary"),
+            "positionName": positionName,
         }
-        exp_ins = await sb.table(EXP_TABLE).insert(exp_payload).execute()
-        if exp_ins.data:
-            expense_id = exp_ins.data[0]["idExpenses"]
+    return data
 
-    return ClosePayrollResult(
-        period_month=tag,
-        updated_count=len(ids),
-        total_amount=total,
-        expense_id=expense_id
+def _month_range(month_str: str) -> Tuple[date, date]:
+    y, m = map(int, month_str.split("-"))
+    start = date(y, m, 1)
+    end = date(y, m, monthrange(y, m)[1])
+    return start, end
+
+# --------- CRUD ----------
+async def create_salary_payment(payload: SalaryPaymentCreate):
+    sb = await get_supabase()
+    # autocompletar paymentDate si viene PAID sin fecha
+    payment_date = payload.paymentDate
+    if payload.state.upper() == "PAID" and payment_date is None:
+        payment_date = payload.registrationDate.date()
+
+    to_insert = payload.model_dump(mode="json")
+    to_insert["paymentDate"] = payment_date
+    to_insert["updateDate"] = datetime.utcnow().isoformat()
+
+    # insert y devolver con embed de employee + position
+    result = (
+        await sb.table("salary_payment")
+        .insert(to_insert)
+        .select(
+            "*, employee:fk_idEmployee (idEmployee, fullName, ci, salary, "
+            "employee_position:fk_idPositionEmployee (namePosition))"
+        )
+        .single()
+        .execute()
     )
+    return _serialize_row(result.data) if result.data else None
+
+async def get_salary_payment(idSalaryPayment: int):
+    sb = await get_supabase()
+    result = (
+        await sb.table("salary_payment")
+        .select(
+            "*, employee:fk_idEmployee (idEmployee, fullName, ci, salary, "
+            "employee_position:fk_idPositionEmployee (namePosition))"
+        )
+        .eq("idSalaryPayment", idSalaryPayment)
+        .single()
+        .execute()
+    )
+    return _serialize_row(result.data) if result.data else None
+
+async def list_salary_payments(
+    page: int = 1,
+    limit: int = 10,
+    employeeId: Optional[int] = None,
+    state: Optional[str] = None,
+    month: Optional[str] = None,           # YYYY-MM sobre registrationDate
+    date_from: Optional[str] = None,       # ISO datetime
+    date_to: Optional[str] = None,         # ISO datetime
+    search: Optional[str] = None,          # nombre o CI exacto
+    orderBy: str = "registrationDate",
+    order: str = "desc",
+):
+    sb = await get_supabase()
+    q = (
+        sb.table("salary_payment")
+        .select(
+            "*, employee:fk_idEmployee (idEmployee, fullName, ci, salary, "
+            "employee_position:fk_idPositionEmployee (namePosition))",
+            count="exact",
+        )
+    )
+
+    if employeeId:
+        q = q.eq("fk_idEmployee", employeeId)
+    if state:
+        q = q.eq("state", state)
+    if month:
+        start, end = _month_range(month)
+        start_dt = f"{start.isoformat()}T00:00:00"
+        end_dt = f"{end.isoformat()}T23:59:59"
+        q = q.gte("registrationDate", start_dt).lte("registrationDate", end_dt)
+    if date_from:
+        q = q.gte("registrationDate", date_from)
+    if date_to:
+        q = q.lte("registrationDate", date_to)
+    if search:
+        # si es número, intenta por CI exacto; si no, por nombre ilike
+        if search.isdigit():
+            q = q.eq("employee.ci", int(search))  # requiere RLS/embedding; si no, quita esto
+        else:
+            # PostgREST or filter
+            q = q.or_(f"employee.fullName.ilike.%{search}%")
+
+    # orden
+    q = q.order(orderBy, desc=(order.lower() == "desc"))
+
+    # paginado (range es inclusivo)
+    start_i = (page - 1) * limit
+    end_i = start_i + limit - 1
+    result = await q.range(start_i, end_i).execute()
+
+    items = [_serialize_row(r) for r in (result.data or [])]
+    total = result.count or 0
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "limit": limit
+    }
+
+async def update_salary_payment(idSalaryPayment: int, payload: SalaryPaymentUpdate):
+    sb = await get_supabase()
+    update_dict = payload.model_dump(mode="json", exclude_unset=True)
+
+    # regla: si cambia a PAID y no hay paymentDate, usar fecha de registro
+    new_state = update_dict.get("state")
+    if new_state and new_state.upper() == "PAID" and "paymentDate" not in update_dict:
+        # necesitamos la registrationDate actual (o nueva si viene en update)
+        if "registrationDate" in update_dict:
+            reg = update_dict["registrationDate"]
+        else:
+            current = (
+                await sb.table("salary_payment")
+                .select("registrationDate")
+                .eq("idSalaryPayment", idSalaryPayment)
+                .single()
+                .execute()
+            )
+            reg = current.data["registrationDate"] if current.data else None
+        if reg:
+            reg_date = reg.split("T")[0] if isinstance(reg, str) else reg.date().isoformat()
+            update_dict["paymentDate"] = reg_date
+
+    update_dict["updateDate"] = datetime.utcnow().isoformat()
+
+    result = (
+        await sb.table("salary_payment")
+        .update(update_dict)
+        .eq("idSalaryPayment", idSalaryPayment)
+        .select(
+            "*, employee:fk_idEmployee (idEmployee, fullName, ci, salary, "
+            "employee_position:fk_idPositionEmployee (namePosition))"
+        )
+        .single()
+        .execute()
+    )
+    return _serialize_row(result.data) if result.data else None
+
+async def delete_salary_payment(idSalaryPayment: int):
+    sb = await get_supabase()
+    result = (
+        await sb.table("salary_payment")
+        .delete()
+        .eq("idSalaryPayment", idSalaryPayment)
+        .select(
+            "*, employee:fk_idEmployee (idEmployee, fullName, ci, salary, "
+            "employee_position:fk_idPositionEmployee (namePosition))"
+        )
+        .single()
+        .execute()
+    )
+    return _serialize_row(result.data) if result.data else None
+
+# --------- Empleados para autocompletar ---------
+async def list_employees_for_payment(search: Optional[str] = None, limit: int = 20):
+    sb = await get_supabase()
+    q = sb.table("employee").select(
+        "idEmployee, fullName, ci, salary, employee_position:fk_idPositionEmployee (namePosition)"
+    )
+
+    if search:
+        if search.isdigit():
+            q = q.eq("ci", int(search))
+        else:
+            q = q.ilike("fullName", f"%{search}%")
+
+    q = q.order("fullName", desc=False).limit(limit)
+    result = await q.execute()
+
+    items = []
+    for r in result.data or []:
+        pos = r.get("employee_position")
+        items.append({
+            "idEmployee": r["idEmployee"],
+            "fullName": r["fullName"],
+            "ci": r["ci"],
+            "salary": r["salary"],
+            "positionName": pos["namePosition"] if isinstance(pos, dict) else None
+        })
+    return items
+
+# --------- Resumen mensual y asiento en expenses ---------
+async def month_summary_total(
+    month: str,
+    state: Optional[str] = "PAID",
+    employeeId: Optional[int] = None,
+    usePaymentDate: bool = True,
+):
+    sb = await get_supabase()
+    start, end = _month_range(month)
+    if usePaymentDate:
+        q = sb.table("salary_payment").select("amount", count="exact") \
+            .gte("paymentDate", start.isoformat()) \
+            .lte("paymentDate", end.isoformat())
+    else:
+        start_dt = f"{start.isoformat()}T00:00:00"
+        end_dt = f"{end.isoformat()}T23:59:59"
+        q = sb.table("salary_payment").select("amount", count="exact") \
+            .gte("registrationDate", start_dt).lte("registrationDate", end_dt)
+
+    if state:
+        q = q.eq("state", state)
+    if employeeId:
+        q = q.eq("fk_idEmployee", employeeId)
+
+    result = await q.limit(10000).execute()  # suma en app (simple y suficiente)
+    amounts = [Decimal(str(r["amount"])) for r in (result.data or [])]
+    total = sum(amounts, Decimal("0"))
+    count = result.count or len(amounts)
+    return total, count
+
+async def create_expense_from_month_total(
+    month: str,
+    total: Decimal,
+    description: Optional[str] = None,
+    expenseDate: Optional[date] = None,
+):
+    sb = await get_supabase()
+    start, _ = _month_range(month)
+    payload = {
+        "date": (expenseDate or date.today()).isoformat(),
+        "description": description or f"Planilla de sueldos {month}",
+        "AmountBsCaptureType": str(total),
+        "period": start.isoformat(),
+    }
+    res = await sb.table("expenses").insert(payload).select("*").single().execute()
+    return res.data["idExpenses"] if res.data else None
