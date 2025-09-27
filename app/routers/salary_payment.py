@@ -4,7 +4,7 @@ from typing import List
 from app.crud import salary_payment as crud_salary
 from app.schemas import salary_payment as schemas_salary
 
-router = APIRouter(prefix="/salary-payments", tags=["salary_payments"])
+router = APIRouter(prefix="/salary_payments", tags=["salary_payments"])
 
 
 @router.post("/", response_model=schemas_salary.SalaryPayment, status_code=status.HTTP_201_CREATED)
