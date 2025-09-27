@@ -1,3 +1,4 @@
+# app/routers/salary_payments.py
 from fastapi import APIRouter, HTTPException, status, Query
 from typing import List, Optional
 from datetime import date
@@ -10,9 +11,12 @@ from app.schemas.salary_payment import (
 
 router = APIRouter(prefix="/salary-payments", tags=["salary-payments"])
 
-# -------- Autocomplete Empleados --------
+# -------- Empleados para combos --------
 @router.get("/employees", response_model=List[EmployeeLite])
-async def list_employees_for_form(search: Optional[str] = None, limit: int = 20):
+async def list_employees_for_form(
+    search: Optional[str] = None,
+    limit: int = Query(20, ge=1, le=5000),
+):
     return await crud_salary.list_employees_for_payment(search=search, limit=limit)
 
 # -------- Resumen mensual --------
@@ -62,6 +66,9 @@ async def close_month_create_expense(
     }
 
 # ====================== CRUD ======================
+
+# Crear (con y sin barra final)
+@router.post("", response_model=SalaryPayment, status_code=status.HTTP_201_CREATED)
 @router.post("/", response_model=SalaryPayment, status_code=status.HTTP_201_CREATED)
 async def create_salary_payment(salary_in: SalaryPaymentCreate):
     sp = await crud_salary.create_salary_payment(salary_in)
@@ -69,23 +76,30 @@ async def create_salary_payment(salary_in: SalaryPaymentCreate):
         raise HTTPException(status_code=400, detail="Salary payment could not be created")
     return sp
 
+# Listar (con y sin barra final) — sin 'search'
+@router.get("", response_model=SalaryPaymentList)
 @router.get("/", response_model=SalaryPaymentList)
 async def list_salary_payments(
-    page: int = 1,
-    limit: int = 10,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=200),
     employeeId: Optional[int] = None,
     state: Optional[str] = None,
     month: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
-    search: Optional[str] = None,
     orderBy: str = "registrationDate",
     order: str = "desc",
 ):
     return await crud_salary.list_salary_payments(
-        page=page, limit=limit, employeeId=employeeId, state=state,
-        month=month, date_from=date_from, date_to=date_to, search=search,
-        orderBy=orderBy, order=order
+        page=page,
+        limit=limit,
+        employeeId=employeeId,
+        state=state,
+        month=month,
+        date_from=date_from,
+        date_to=date_to,
+        orderBy=orderBy,
+        order=order,
     )
 
 @router.get("/{salary_id}", response_model=SalaryPayment)

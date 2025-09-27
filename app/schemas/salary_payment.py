@@ -15,11 +15,13 @@ class EmployeeLite(BaseModel):
 class SalaryPaymentBase(BaseModel):
     amount: Decimal = Field(..., gt=0)
     state: str
-    registrationDate: datetime
+    # <-- ahora opcional; el backend/BD la setean si no llega
+    registrationDate: Optional[datetime] = None
     paymentDate: Optional[date] = None
     fk_idEmployee: int
 
 class SalaryPaymentCreate(SalaryPaymentBase):
+    # sin cambios: al heredar, registrationDate ya es opcional
     pass
 
 class SalaryPaymentUpdate(BaseModel):
@@ -38,7 +40,7 @@ class SalaryPaymentInDBBase(SalaryPaymentBase):
         from_attributes = True
 
 class SalaryPayment(SalaryPaymentInDBBase):
-    # Se agrega el empleado embebido para el front
+    # empleado embebido para el front
     employee: Optional[EmployeeLite] = None
 
 # ====== Listado paginado ======
