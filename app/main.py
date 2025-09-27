@@ -30,6 +30,7 @@ from app.routers import (
     total_control,
     vaccination_plan,
     vaccination_plan_application,
+    alpha_report,
 )
 
 app = FastAPI(title="backend-Country-API")
@@ -98,3 +99,4 @@ app.include_router(owner_report_month.router)
 app.include_router(total_control.router)
 app.include_router(vaccination_plan.router)
 app.include_router(vaccination_plan_application.router)
+app.include_router(alpha_report.router)

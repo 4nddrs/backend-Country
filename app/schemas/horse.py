@@ -16,6 +16,8 @@ class HorseBase(BaseModel):
     fk_idRace: int
     fk_idOwner: int
     fl_idNutritionalPlan: Optional[int] = None
+    state: str
+    stateSchool: bool 
 
 class HorseCreate(HorseBase):
     pass
