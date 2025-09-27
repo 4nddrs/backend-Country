@@ -5,7 +5,7 @@ from typing import Optional
 
 class EmployeeBase(BaseModel):
     fullName: str
-    ci: str
+    ci: int
     phoneNumber: int
     employeePhoto: Optional[str] = None
     startContractDate: date
