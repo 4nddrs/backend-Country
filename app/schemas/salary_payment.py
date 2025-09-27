@@ -4,7 +4,7 @@ from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional, List
 
-# ====== Empleado (para autocompletar / respuesta) ======
+# ========== Empleado (para combos / embedding) ==========
 class EmployeeLite(BaseModel):
     idEmployee: int
     fullName: str
@@ -12,30 +12,33 @@ class EmployeeLite(BaseModel):
     positionName: Optional[str] = None
     salary: Decimal
 
-# ====== CREATE / UPDATE ======
-class SalaryPaymentCreate(BaseModel):
+# ========== SalaryPayment ==========
+class SalaryPaymentBase(BaseModel):
     amount: Decimal = Field(..., gt=0)
     state: str
     paymentDate: Optional[date] = None
     fk_idEmployee: int
-    # 👈 NO incluimos registrationDate aquí
 
+# CREATE: el front NO envía registrationDate
+class SalaryPaymentCreate(SalaryPaymentBase):
+    pass
+
+# UPDATE: todo opcional
 class SalaryPaymentUpdate(BaseModel):
     amount: Optional[Decimal] = Field(None, gt=0)
     state: Optional[str] = None
-    registrationDate: Optional[datetime] = None   # se puede editar si quisieras
+    registrationDate: Optional[datetime] = None
     paymentDate: Optional[date] = None
     fk_idEmployee: Optional[int] = None
 
-# ====== MODELOS DE RESPUESTA ======
 class SalaryPaymentInDBBase(BaseModel):
     idSalaryPayment: int
     created_at: datetime
+    registrationDate: datetime
+    updateDate: datetime
     amount: Decimal
     state: str
-    registrationDate: datetime
     paymentDate: Optional[date] = None
-    updateDate: datetime
     fk_idEmployee: int
 
     class Config:
@@ -44,17 +47,9 @@ class SalaryPaymentInDBBase(BaseModel):
 class SalaryPayment(SalaryPaymentInDBBase):
     employee: Optional[EmployeeLite] = None
 
+# Listado paginado
 class SalaryPaymentList(BaseModel):
     items: List[SalaryPayment]
     total: int
     page: int
     limit: int
-
-class MonthSummary(BaseModel):
-    month: str
-    totalAmount: Decimal
-    count: int
-
-class CloseMonthResponse(MonthSummary):
-    expenseCreated: bool
-    expenseId: Optional[int] = None

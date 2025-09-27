@@ -1,73 +1,26 @@
 # app/routers/salary_payments.py
 from fastapi import APIRouter, HTTPException, status, Query
 from typing import List, Optional
-from datetime import date
 
 from app.crud import salary_payment as crud_salary
 from app.schemas.salary_payment import (
     SalaryPayment, SalaryPaymentCreate, SalaryPaymentUpdate,
-    SalaryPaymentList, MonthSummary, CloseMonthResponse, EmployeeLite
+    SalaryPaymentList, EmployeeLite
 )
 
 router = APIRouter(prefix="/salary-payments", tags=["salary-payments"])
 
-# -------- Empleados para combos --------
+# -------- Empleados (para combos) --------
 @router.get("/employees", response_model=List[EmployeeLite])
 async def list_employees_for_form(
     search: Optional[str] = None,
-    limit: int = Query(20, ge=1, le=5000),
+    limit: int = Query(50, ge=1, le=5000),
 ):
     return await crud_salary.list_employees_for_payment(search=search, limit=limit)
 
-# -------- Resumen mensual --------
-@router.get("/summary/month", response_model=MonthSummary)
-async def salary_month_summary(
-    month: str = Query(..., description="Formato YYYY-MM"),
-    state: Optional[str] = "PAID",
-    employeeId: Optional[int] = None,
-    usePaymentDate: bool = True,
-):
-    total, count = await crud_salary.month_summary_total(
-        month=month, state=state, employeeId=employeeId, usePaymentDate=usePaymentDate
-    )
-    return {"month": month, "totalAmount": total, "count": count}
-
-# -------- Cierre de mes -> expenses --------
-@router.post("/close-month", response_model=CloseMonthResponse)
-async def close_month_create_expense(
-    month: str = Query(..., description="Formato YYYY-MM"),
-    description: Optional[str] = Query(None),
-    expenseDate: Optional[date] = Query(None),
-    state: Optional[str] = "PAID",
-    employeeId: Optional[int] = None,
-    usePaymentDate: bool = True,
-):
-    total, count = await crud_salary.month_summary_total(
-        month=month, state=state, employeeId=employeeId, usePaymentDate=usePaymentDate
-    )
-    if total <= 0:
-        return {
-            "month": month,
-            "totalAmount": total,
-            "count": count,
-            "expenseCreated": False,
-            "expenseId": None
-        }
-
-    exp_id = await crud_salary.create_expense_from_month_total(
-        month=month, total=total, description=description, expenseDate=expenseDate
-    )
-    return {
-        "month": month,
-        "totalAmount": total,
-        "count": count,
-        "expenseCreated": True,
-        "expenseId": exp_id
-    }
-
 # ====================== CRUD ======================
 
-# Crear (con y sin barra final)
+# Create (acepta /salary-payments y /salary-payments/)
 @router.post("", response_model=SalaryPayment, status_code=status.HTTP_201_CREATED)
 @router.post("/", response_model=SalaryPayment, status_code=status.HTTP_201_CREATED)
 async def create_salary_payment(salary_in: SalaryPaymentCreate):
@@ -76,7 +29,7 @@ async def create_salary_payment(salary_in: SalaryPaymentCreate):
         raise HTTPException(status_code=400, detail="Salary payment could not be created")
     return sp
 
-# Listar (con y sin barra final) — sin 'search'
+# List (acepta con/sin barra final)
 @router.get("", response_model=SalaryPaymentList)
 @router.get("/", response_model=SalaryPaymentList)
 async def list_salary_payments(
@@ -84,9 +37,7 @@ async def list_salary_payments(
     limit: int = Query(10, ge=1, le=200),
     employeeId: Optional[int] = None,
     state: Optional[str] = None,
-    month: Optional[str] = None,
-    date_from: Optional[str] = None,
-    date_to: Optional[str] = None,
+    month: Optional[str] = None,              # YYYY-MM (sobre registrationDate)
     orderBy: str = "registrationDate",
     order: str = "desc",
 ):
@@ -96,8 +47,6 @@ async def list_salary_payments(
         employeeId=employeeId,
         state=state,
         month=month,
-        date_from=date_from,
-        date_to=date_to,
         orderBy=orderBy,
         order=order,
     )
