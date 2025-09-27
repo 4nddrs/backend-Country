@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime, date
 from typing import Optional
+from decimal import Decimal
 
 
 class EmployeeBase(BaseModel):
@@ -12,7 +13,7 @@ class EmployeeBase(BaseModel):
     endContractDate: date
     startTime: datetime
     exitTime: datetime
-    salary: int
+    salary: Decimal
     status: Optional[bool] = False
     fk_idPositionEmployee: int
 
