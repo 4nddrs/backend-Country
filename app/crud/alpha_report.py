@@ -3,16 +3,18 @@ from typing import List, Tuple, Dict, Optional
 from collections import defaultdict
 from app.supabase_client import get_supabase
 
+
 def _month_bounds(period_month: str) -> Tuple[datetime, datetime, str]:
     y, m = map(int, period_month.split("-"))
     start = datetime(y, m, 1)
     end = datetime(y + (m // 12), (m % 12) + 1, 1)
     return start, end, f"{y:04d}-{m:02d}"
 
+
 async def _fetch_horses_with_owner_and_plan():
     supabase = await get_supabase()
     horses = await supabase.table("horse").select(
-        "idHorse,horseName,fk_idOwner,fl_idNutritionalPlan"
+        "idHorse,horseName,fk_idOwner,fl_idNutritionalPlan,stateSchool"  # 👈 añadimos stateSchool
     ).execute()
     horses = horses.data or []
 
@@ -23,12 +25,13 @@ async def _fetch_horses_with_owner_and_plan():
             .in_("idOwner", owner_ids).execute()
         for it in (o.data or []):
             full = " ".join(filter(None, [
-                str(it.get("name","")).strip(),
-                str(it.get("FirstName","")).strip(),
-                str(it.get("SecondName","") or "").strip()
+                str(it.get("name", "")).strip(),
+                str(it.get("FirstName", "")).strip(),
+                str(it.get("SecondName", "") or "").strip()
             ])).strip()
             owners[it["idOwner"]] = full or str(it["idOwner"])
     return horses, owners
+
 
 async def _fetch_foods(q: Optional[str] = None, limit: int = 200):
     supabase = await get_supabase()
@@ -38,8 +41,13 @@ async def _fetch_foods(q: Optional[str] = None, limit: int = 200):
     res = await query.execute()
     return res.data or []
 
-async def _fetch_details_for_month(plan_ids: List[int], start: datetime, end: datetime,
-                                   food_id: Optional[int] = None):
+
+async def _fetch_details_for_month(
+    plan_ids: List[int],
+    start: datetime,
+    end: datetime,
+    food_id: Optional[int] = None
+):
     if not plan_ids:
         return []
     supabase = await get_supabase()
@@ -53,6 +61,7 @@ async def _fetch_details_for_month(plan_ids: List[int], start: datetime, end: da
     res = await sel.execute()
     return res.data or []
 
+
 async def list_periods(food_id: Optional[int] = None) -> List[str]:
     supabase = await get_supabase()
     sel = supabase.table("nutritional_plan_details").select("period").order("period", desc=True)
@@ -64,6 +73,7 @@ async def list_periods(food_id: Optional[int] = None) -> List[str]:
         periods.add(r["period"][:7])  # YYYY-MM
     return sorted(periods, reverse=True)
 
+
 async def build_consumption_report(period_month: str, food_id: Optional[int] = None):
     start, end, period_tag = _month_bounds(period_month)
 
@@ -74,8 +84,9 @@ async def build_consumption_report(period_month: str, food_id: Optional[int] = N
     # 2) si se filtra por alimento, busca su nombre (para devolverlo)
     food_name: Optional[str] = None
     if food_id:
-        foods = await get_supabase()
-        fr = await foods.table("food_stock").select("idFood,foodName").eq("idFood", food_id).single().execute()
+        supabase = await get_supabase()
+        fr = await supabase.table("food_stock").select("idFood,foodName") \
+            .eq("idFood", food_id).single().execute()
         if fr.data:
             food_name = fr.data["foodName"]
 
@@ -98,6 +109,7 @@ async def build_consumption_report(period_month: str, food_id: Optional[int] = N
     total_klg_mes = 0.0
     comen = 0
     no_comen = 0
+    caballos_escuela = 0  # 👈 acumulador
 
     for h in horses:
         hid = h["idHorse"]
@@ -119,6 +131,11 @@ async def build_consumption_report(period_month: str, food_id: Optional[int] = N
         total_klg += klg
         total_klg_mes += klg_mes
 
+        # Flag de escuela desde la tabla horse
+        is_school = bool(h.get("stateSchool"))
+        if is_school:
+            caballos_escuela += 1
+
         rows.append({
             "horse_id": hid,
             "horse_name": h["horseName"],
@@ -127,18 +144,21 @@ async def build_consumption_report(period_month: str, food_id: Optional[int] = N
             "period": period_tag,
             "consumptionKlg": klg,
             "daysConsumptionMonth": days,
-            "klgMes": klg_mes
+            "klgMes": klg_mes,
+            "stateSchool": is_school,  # 👈 lo devolvemos por fila
         })
 
     rows.sort(key=lambda x: x["klgMes"], reverse=True)
+
     summary = {
         "comen": comen,
         "no_comen": no_comen,
-        "caballos_escuela": 0,                 # por ahora 0
+        "caballos_escuela": caballos_escuela,  # 👈 total correcto
         "total_caballos": total_caballos,
         "total_klg": round(total_klg, 2),
         "total_klg_mes": round(total_klg_mes, 2),
     }
+
     return {
         "period_month": period_tag,
         "food_id": food_id,
@@ -147,12 +167,15 @@ async def build_consumption_report(period_month: str, food_id: Optional[int] = N
         "summary": summary
     }
 
+
 # Utilidades públicas para router
 async def list_foods(q: Optional[str] = None):
     return await _fetch_foods(q=q)
 
+
 async def list_periods_by_food(food_id: Optional[int] = None):
     return await list_periods(food_id=food_id)
+
 
 async def report_all_months_all_foods():
     months = await list_periods(food_id=None)

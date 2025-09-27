@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Any, Optional
+from typing import List, Optional
 
 class ConsumptionReportQuery(BaseModel):
     period_month: str = Field(..., example="2025-06")  # YYYY-MM
@@ -13,12 +13,14 @@ class ConsumptionReportRow(BaseModel):
     period: str                   # YYYY-MM
     consumptionKlg: float         # suma mensual (filtrado por food si aplica)
     daysConsumptionMonth: float   # suma mensual
-    klgMes: float                 # consumptionKlg * daysConsumptionMonth (agregado)
+    klgMes: float                 # consumoKlg * días (agregado)
+    stateSchool: bool             # 👈 NUEVO: True si el caballo pertenece a escuela
+    # state: Optional[str] = None # (opcional) ACTIVO | AUSENTE | FALLECIDO
 
 class ConsumptionReportSummary(BaseModel):
     comen: int
     no_comen: int
-    caballos_escuela: int
+    caballos_escuela: int         # se calcula con los rows.stateSchool
     total_caballos: int
     total_klg: float
     total_klg_mes: float
