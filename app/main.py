@@ -39,7 +39,7 @@ app = FastAPI(title="backend-Country-API")
 # ⚡ Middleware CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://backend-country-nnxe.onrender.com" , "http://127.0.0.1:8000" , "http://localhost:5173"],  # Permite cualquier dominio (para pruebas)
+    allow_origins=["*"],  # Permite cualquier dominio (para pruebas)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
