@@ -40,7 +40,7 @@ app = FastAPI(title="backend-Country-API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Permite cualquier dominio (para pruebas)
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
