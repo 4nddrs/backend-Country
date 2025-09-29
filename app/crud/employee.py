@@ -1,10 +1,11 @@
 import base64
 from datetime import date, datetime
+from decimal import Decimal
 from app.supabase_client import get_supabase
 from app.schemas.employee import EmployeeCreate, EmployeeUpdate
 
 def serialize_employee(employee):
-    """Convierte date/datetime a string y bytes a Base64 para JSON"""
+    """Convierte date/datetime a string, Decimal a float y bytes a Base64 para JSON"""
     data = employee.model_dump(exclude_unset=True)
     
     for key, value in data.items():
@@ -12,6 +13,9 @@ def serialize_employee(employee):
             data[key] = value.isoformat()
         elif isinstance(value, bytes):
             data[key] = base64.b64encode(value).decode("utf-8")  # bytes -> Base64 string
+        elif isinstance(value, Decimal):
+            data[key] = float(value)  # Decimal -> float (JSON serializable)
+
     return data
 
 async def get_employee(idEmployee: int):
