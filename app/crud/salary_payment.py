@@ -9,11 +9,11 @@ from app.schemas.salary_payment import SalaryPaymentCreate, SalaryPaymentUpdate
 
 def _serialize_value(value: Any) -> Any:
     if isinstance(value, (datetime, date)):
-        return value.isoformat()
+        return value.isoformat()  # datetime/date -> string
     if isinstance(value, Decimal):
-        return float(value)
+        return float(value)       # Decimal -> float
     if isinstance(value, bytes):
-        return base64.b64encode(value).decode("utf-8")
+        return base64.b64encode(value).decode("utf-8")  # bytes -> Base64
     return value
 
 
@@ -49,11 +49,14 @@ async def get_salary_payments(skip: int = 0, limit: int = 100) -> List[Dict[str,
 async def create_salary_payment(payload: SalaryPaymentCreate) -> Optional[Dict[str, Any]]:
     supabase = await get_supabase()
 
-    data = payload.model_dump(mode="json")
+    data = payload.model_dump(exclude_unset=True)
     if "updateDate" not in data or data["updateDate"] is None:
         data["updateDate"] = datetime.utcnow().replace(tzinfo=None)
 
-    result = await supabase.table("salary_payment").insert(data).execute()
+    # 🔥 Serializar valores antes de enviar
+    serialized = {k: _serialize_value(v) for k, v in data.items()}
+
+    result = await supabase.table("salary_payment").insert(serialized).execute()
     return serialize_salary_payment(result.data[0]) if result.data else None
 
 
@@ -62,12 +65,15 @@ async def update_salary_payment(
 ) -> Optional[Dict[str, Any]]:
     supabase = await get_supabase()
 
-    data = payload.model_dump(mode="json", exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True)
     data["updateDate"] = datetime.utcnow().replace(tzinfo=None)
+
+    # 🔥 Serializar valores antes de enviar
+    serialized = {k: _serialize_value(v) for k, v in data.items()}
 
     result = (
         await supabase.table("salary_payment")
-        .update(data)
+        .update(serialized)
         .eq("idSalaryPayment", idSalaryPayment)
         .execute()
     )
