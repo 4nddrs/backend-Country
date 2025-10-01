@@ -32,6 +32,7 @@ from app.routers import (
     vaccination_plan_application,
     alpha_report,
     salary_payment,
+    tip_payment,
 )
 
 app = FastAPI(title="backend-Country-API")
@@ -102,3 +103,4 @@ app.include_router(vaccination_plan.router)
 app.include_router(vaccination_plan_application.router)
 app.include_router(alpha_report.router)
 app.include_router(salary_payment.router)
+app.include_router(tip_payment.router)

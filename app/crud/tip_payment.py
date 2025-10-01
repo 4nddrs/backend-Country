@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from app.supabase_client import get_supabase
-from app.schemas.salary_payment import SalaryPaymentCreate, SalaryPaymentUpdate
+from app.schemas.tip_payment import TipPaymentCreate, TipPaymentUpdate
 
 
 def _serialize_value(value: Any) -> Any:
@@ -17,8 +17,8 @@ def _serialize_value(value: Any) -> Any:
     return value
 
 
-def serialize_salary_payment(row: Dict[str, Any]) -> Dict[str, Any]:
-    """Serializa un pago de salario respetando anidamientos de employee y employee_position."""
+def serialize_tip_payment(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Serializa un tip_payment respetando anidamientos de employee y employee_position."""
     if not row:
         return {}
     out: Dict[str, Any] = {}
@@ -37,15 +37,16 @@ def serialize_salary_payment(row: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # ========= CRUD =========
-async def get_salary_payment(idSalaryPayment: int) -> Optional[Dict[str, Any]]:
+async def get_tip_payment(idTipPayment: int) -> Optional[Dict[str, Any]]:
     supabase = await get_supabase()
     result = (
-        await supabase.table("salary_payment")
+        await supabase.table("tip_payment")
         .select("""
-            idSalaryPayment,
+            idTipPayment,
             created_at,
             amount,
             state,
+            description,
             registrationDate,
             paymentDate,
             updateDate,
@@ -59,26 +60,27 @@ async def get_salary_payment(idSalaryPayment: int) -> Optional[Dict[str, Any]]:
                 )
             )
         """)
-        .eq("idSalaryPayment", idSalaryPayment)
+        .eq("idTipPayment", idTipPayment)
         .single()
         .execute()
     )
 
-    print("==== RESULT get_salary_payment ====")
+    print("==== RESULT get_tip_payment ====")
     print(result.data)
 
-    return serialize_salary_payment(result.data) if result.data else None
+    return serialize_tip_payment(result.data) if result.data else None
 
 
-async def get_salary_payments(skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
+async def get_tip_payments(skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
     supabase = await get_supabase()
     result = (
-        await supabase.table("salary_payment")
+        await supabase.table("tip_payment")
         .select("""
-            idSalaryPayment,
+            idTipPayment,
             created_at,
             amount,
             state,
+            description,
             registrationDate,
             paymentDate,
             updateDate,
@@ -92,19 +94,19 @@ async def get_salary_payments(skip: int = 0, limit: int = 100) -> List[Dict[str,
                 )
             )
         """)
-        .order("idSalaryPayment", desc=False)
+        .order("idTipPayment", desc=False)
         .range(skip, skip + limit - 1)
         .execute()
     )
 
-    print("==== RESULT get_salary_payments ====")
+    print("==== RESULT get_tip_payments ====")
     print(result.data)
 
     rows = result.data or []
-    return [serialize_salary_payment(r) for r in rows]
+    return [serialize_tip_payment(r) for r in rows]
 
 
-async def create_salary_payment(payload: SalaryPaymentCreate) -> Optional[Dict[str, Any]]:
+async def create_tip_payment(payload: TipPaymentCreate) -> Optional[Dict[str, Any]]:
     supabase = await get_supabase()
 
     data = payload.model_dump(exclude_unset=True)
@@ -114,20 +116,21 @@ async def create_salary_payment(payload: SalaryPaymentCreate) -> Optional[Dict[s
     serialized = {k: _serialize_value(v) for k, v in data.items()}
 
     # 1️⃣ Insertar
-    insert_result = await supabase.table("salary_payment").insert(serialized).execute()
+    insert_result = await supabase.table("tip_payment").insert(serialized).execute()
     if not insert_result.data:
         return None
 
-    new_id = insert_result.data[0]["idSalaryPayment"]
+    new_id = insert_result.data[0]["idTipPayment"]
 
     # 2️⃣ Select con relaciones
     select_result = (
-        await supabase.table("salary_payment")
+        await supabase.table("tip_payment")
         .select("""
-            idSalaryPayment,
+            idTipPayment,
             created_at,
             amount,
             state,
+            description,
             registrationDate,
             paymentDate,
             updateDate,
@@ -141,16 +144,16 @@ async def create_salary_payment(payload: SalaryPaymentCreate) -> Optional[Dict[s
                 )
             )
         """)
-        .eq("idSalaryPayment", new_id)
+        .eq("idTipPayment", new_id)
         .single()
         .execute()
     )
 
-    return serialize_salary_payment(select_result.data) if select_result.data else None
+    return serialize_tip_payment(select_result.data) if select_result.data else None
 
 
-async def update_salary_payment(
-    idSalaryPayment: int, payload: SalaryPaymentUpdate
+async def update_tip_payment(
+    idTipPayment: int, payload: TipPaymentUpdate
 ) -> Optional[Dict[str, Any]]:
     supabase = await get_supabase()
 
@@ -161,9 +164,9 @@ async def update_salary_payment(
 
     # 1️⃣ Update
     update_result = (
-        await supabase.table("salary_payment")
+        await supabase.table("tip_payment")
         .update(serialized)
-        .eq("idSalaryPayment", idSalaryPayment)
+        .eq("idTipPayment", idTipPayment)
         .execute()
     )
     if not update_result.data:
@@ -171,12 +174,13 @@ async def update_salary_payment(
 
     # 2️⃣ Select actualizado con relaciones
     select_result = (
-        await supabase.table("salary_payment")
+        await supabase.table("tip_payment")
         .select("""
-            idSalaryPayment,
+            idTipPayment,
             created_at,
             amount,
             state,
+            description,
             registrationDate,
             paymentDate,
             updateDate,
@@ -190,20 +194,20 @@ async def update_salary_payment(
                 )
             )
         """)
-        .eq("idSalaryPayment", idSalaryPayment)
+        .eq("idTipPayment", idTipPayment)
         .single()
         .execute()
     )
 
-    return serialize_salary_payment(select_result.data) if select_result.data else None
+    return serialize_tip_payment(select_result.data) if select_result.data else None
 
 
-async def delete_salary_payment(idSalaryPayment: int) -> Optional[Dict[str, Any]]:
+async def delete_tip_payment(idTipPayment: int) -> Optional[Dict[str, Any]]:
     supabase = await get_supabase()
     result = (
-        await supabase.table("salary_payment")
+        await supabase.table("tip_payment")
         .delete()
-        .eq("idSalaryPayment", idSalaryPayment)
+        .eq("idTipPayment", idTipPayment)
         .execute()
     )
-    return serialize_salary_payment(result.data[0]) if result.data else None
+    return serialize_tip_payment(result.data[0]) if result.data else None

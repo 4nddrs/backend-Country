@@ -22,29 +22,31 @@ class EmployeeLite(BaseModel):
         from_attributes = True
 
 
-# ====== Salary Payment ======
-class SalaryPaymentBase(BaseModel):
+# ====== Tip Payment ======
+class TipPaymentBase(BaseModel):
     amount: Decimal
     state: str
+    description: str               # 👈 nuevo campo obligatorio
     paymentDate: Optional[date] = None
     fk_idEmployee: int
 
 
-class SalaryPaymentCreate(SalaryPaymentBase):
+class TipPaymentCreate(TipPaymentBase):
     """El cliente NO manda registrationDate, lo genera el backend"""
     pass
 
 
-class SalaryPaymentUpdate(BaseModel):
+class TipPaymentUpdate(BaseModel):
     amount: Optional[Decimal] = None
     state: Optional[str] = None
+    description: Optional[str] = None   # 👈 editable
     paymentDate: Optional[date] = None
     fk_idEmployee: Optional[int] = None
     updateDate: Optional[datetime] = None
 
 
-class SalaryPaymentInDBBase(SalaryPaymentBase):
-    idSalaryPayment: int
+class TipPaymentInDBBase(TipPaymentBase):
+    idTipPayment: int
     created_at: datetime
     registrationDate: datetime
     updateDate: datetime
@@ -53,5 +55,5 @@ class SalaryPaymentInDBBase(SalaryPaymentBase):
         from_attributes = True
 
 
-class SalaryPayment(SalaryPaymentInDBBase):
-    employee: Optional[EmployeeLite] = None   # 👈 aquí se incluye el empleado
+class TipPayment(TipPaymentInDBBase):
+    employee: Optional[EmployeeLite] = None
