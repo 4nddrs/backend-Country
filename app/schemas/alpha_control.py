@@ -1,10 +1,12 @@
+from __future__ import annotations
 from pydantic import BaseModel
-from datetime import datetime, date
+from datetime import date, datetime
 from typing import Optional
+from typing import Optional, Union
 
 
 class AlphaControlBase(BaseModel):
-    date: date
+    date: date   # coincide con la columna en la tabla
     alphaIncome: float
     unitPrice: float
     totalPurchasePrice: float
@@ -12,16 +14,23 @@ class AlphaControlBase(BaseModel):
     balance: float
     salePrice: float
     income: float
-    closingAmount: str
-    fk_idFoodProvider: int
+    fk_idFoodProvider: Optional[int] = None
 
 
 class AlphaControlCreate(AlphaControlBase):
     pass
 
 
-class AlphaControlUpdate(AlphaControlBase):
-    pass
+class AlphaControlUpdate(BaseModel):
+    date: Optional[Union[date, str]] = None
+    alphaIncome: Optional[float] = None
+    unitPrice: Optional[float] = None
+    totalPurchasePrice: Optional[float] = None
+    outcome: Optional[float] = None
+    balance: Optional[float] = None
+    salePrice: Optional[float] = None
+    income: Optional[float] = None
+    fk_idFoodProvider: Optional[int] = None
 
 
 class AlphaControlInDBBase(AlphaControlBase):
@@ -33,4 +42,4 @@ class AlphaControlInDBBase(AlphaControlBase):
 
 
 class AlphaControl(AlphaControlInDBBase):
-    pass
+    provider: Optional[dict] = None
