@@ -9,7 +9,8 @@ class OwnerBase(BaseModel):
     SecondName: Optional[str] = None
     ci: int
     phoneNumber: int
-    ownerPhoto: Optional[str] = None  # Base64 string
+    ownerPhoto: Optional[str] = None  
+    uid: Optional[str] = None  
 
 
 class OwnerCreate(OwnerBase):
@@ -22,7 +23,8 @@ class OwnerUpdate(BaseModel):
     SecondName: Optional[str] = None
     ci: Optional[int] = None
     phoneNumber: Optional[int] = None
-    ownerPhoto: Optional[str] = None  # Base64 string
+    ownerPhoto: Optional[str] = None 
+    uid: Optional[str] = None 
 
 
 class OwnerInDBBase(OwnerBase):

@@ -5,38 +5,57 @@ from app.schemas import employee as schemas_employee
 
 router = APIRouter(prefix="/employees", tags=["employees"])
 
-@router.post("/", response_model=schemas_employee.Employee, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/",
+    response_model=schemas_employee.Employee,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_employee(employee_in: schemas_employee.EmployeeCreate):
-    employee = await crud_employee.create_employee(employee_in)
-    if not employee:
-        raise HTTPException(status_code=400, detail="Could not create employee")
-    return employee
+    try:
+        employee = await crud_employee.create_employee(employee_in)
+        if not employee:
+            raise HTTPException(status_code=400, detail="No se pudo crear el empleado.")
+        return employee
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
 
 @router.get("/", response_model=List[schemas_employee.Employee])
 async def list_employees(skip: int = 0, limit: int = 100):
     employees = await crud_employee.get_employees(skip=skip, limit=limit)
     return employees
 
+
 @router.get("/{idEmployee}", response_model=schemas_employee.Employee)
 async def get_employee(idEmployee: int):
     employee = await crud_employee.get_employee(idEmployee)
     if not employee:
-        raise HTTPException(status_code=404, detail="Employee not found")
+        raise HTTPException(status_code=404, detail="Empleado no encontrado.")
     return employee
+
 
 @router.put("/{idEmployee}", response_model=schemas_employee.Employee)
 async def update_employee(
     idEmployee: int,
     employee_in: schemas_employee.EmployeeUpdate,
 ):
-    updated = await crud_employee.update_employee(idEmployee, employee_in)
-    if not updated:
-        raise HTTPException(status_code=404, detail="Employee not found")
-    return updated
+    try:
+        updated = await crud_employee.update_employee(idEmployee, employee_in)
+        if not updated:
+            raise HTTPException(status_code=404, detail="Empleado no encontrado.")
+        return updated
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
 
 @router.delete("/{idEmployee}", response_model=schemas_employee.Employee)
 async def delete_employee(idEmployee: int):
     deleted = await crud_employee.delete_employee(idEmployee)
     if not deleted:
-        raise HTTPException(status_code=404, detail="Employee not found")
+        raise HTTPException(status_code=404, detail="Empleado no encontrado.")
     return deleted

@@ -7,22 +7,25 @@ from uuid import UUID
 class ErpUserBase(BaseModel):
     username: str
     email: EmailStr
-    fk_idOwner: Optional[int] = None
-    fk_idEmployee: Optional[int] = None
-    fk_idAuthUser: Optional[UUID] = None
     fk_idUserRole: int
+    isapproved: Optional[bool] = None
+    approved_at: Optional[datetime] = None
 
 
 class ErpUserCreate(ErpUserBase):
     pass
 
 
-class ErpUserUpdate(ErpUserBase):
-    pass
+class ErpUserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    fk_idUserRole: Optional[int] = None
+    isapproved: Optional[bool] = None
+    approved_at: Optional[datetime] = None
 
 
 class ErpUserInDBBase(ErpUserBase):
-    idErpUser: int
+    uid: UUID
     created_at: datetime
 
     class Config:

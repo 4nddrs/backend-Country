@@ -1,13 +1,14 @@
+from uuid import UUID
 from app.supabase_client import get_supabase
 from app.schemas.erp_user import ErpUserCreate, ErpUserUpdate
 
 
-async def get_erp_user(idErpUser: int):
+async def get_erp_user(uid: UUID):
     supabase = await get_supabase()
     result = (
         await supabase.table("erp_user")
         .select("*")
-        .eq("idErpUser", idErpUser)
+        .eq("uid", str(uid))
         .single()
         .execute()
     )
@@ -25,28 +26,32 @@ async def get_erp_users(skip: int = 0, limit: int = 100):
     return result.data if result.data else []
 
 
-async def create_erp_user(user: ErpUserCreate):
+async def create_erp_user(user: ErpUserCreate, uid: UUID):
     supabase = await get_supabase()
     data_dict = user.model_dump(mode="json")
+    data_dict["uid"] = str(uid)
     result = await supabase.table("erp_user").insert(data_dict).execute()
     return result.data[0] if result.data else None
 
 
-async def update_erp_user(idErpUser: int, user: ErpUserUpdate):
+async def update_erp_user(uid: UUID, user: ErpUserUpdate):
     supabase = await get_supabase()
     data_dict = user.model_dump(mode="json", exclude_unset=True)
     result = (
         await supabase.table("erp_user")
         .update(data_dict)
-        .eq("idErpUser", idErpUser)
+        .eq("uid", str(uid))
         .execute()
     )
     return result.data[0] if result.data else None
 
 
-async def delete_erp_user(idErpUser: int):
+async def delete_erp_user(uid: UUID):
     supabase = await get_supabase()
     result = (
-        await supabase.table("erp_user").delete().eq("idErpUser", idErpUser).execute()
+        await supabase.table("erp_user")
+        .delete()
+        .eq("uid", str(uid))
+        .execute()
     )
     return result.data[0] if result.data else None

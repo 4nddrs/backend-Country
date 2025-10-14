@@ -27,15 +27,42 @@ async def get_owners(skip: int = 0, limit: int = 100):
 
 async def create_owner(owner: OwnerCreate):
     supabase = await get_supabase()
-    result = await supabase.table("owner").insert(owner.model_dump()).execute()
+
+    owner_data = owner.model_dump(exclude_unset=True)
+
+    if owner_data.get("uid"):
+        check_uid = (
+            await supabase.table("erp_user")
+            .select("uid")
+            .eq("uid", owner_data["uid"])
+            .single()
+            .execute()
+        )
+        if not check_uid.data:
+            raise ValueError("El UID proporcionado no existe en erp_user.")
+
+    result = await supabase.table("owner").insert(owner_data).execute()
     return result.data[0] if result.data else None
 
 
 async def update_owner(owner_id: int, owner: OwnerUpdate):
     supabase = await get_supabase()
+    update_data = owner.model_dump(exclude_unset=True)
+
+    if update_data.get("uid"):
+        check_uid = (
+            await supabase.table("erp_user")
+            .select("uid")
+            .eq("uid", update_data["uid"])
+            .single()
+            .execute()
+        )
+        if not check_uid.data:
+            raise ValueError("El UID proporcionado no existe en erp_user.")
+
     result = (
         await supabase.table("owner")
-        .update(owner.model_dump(exclude_unset=True))
+        .update(update_data)
         .eq("idOwner", owner_id)
         .execute()
     )
@@ -44,5 +71,10 @@ async def update_owner(owner_id: int, owner: OwnerUpdate):
 
 async def delete_owner(owner_id: int):
     supabase = await get_supabase()
-    result = await supabase.table("owner").delete().eq("idOwner", owner_id).execute()
+    result = (
+        await supabase.table("owner")
+        .delete()
+        .eq("idOwner", owner_id)
+        .execute()
+    )
     return result.data[0] if result.data else None
