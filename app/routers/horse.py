@@ -37,3 +37,10 @@ async def delete_horse(horse_id: int):
     if not deleted_horse:
         raise HTTPException(status_code=404, detail="Horse not found")
     return deleted_horse
+
+@router.get("/by_owner/{idOwner}", response_model=List[schemas_horse.Horse])
+async def get_horses_by_owner(idOwner: int):
+    horses = await crud_horse.get_horses_by_owner(idOwner)
+    if horses is None:
+        raise HTTPException(status_code=404, detail="No horses found for this owner")
+    return horses

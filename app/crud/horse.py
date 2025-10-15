@@ -73,3 +73,14 @@ async def delete_horse(idHorse: int):
     supabase = await get_supabase()
     result = await supabase.table("horse").delete().eq("idHorse", idHorse).execute()
     return serialize_horse(result.data[0]) if result.data else None
+
+
+async def get_horses_by_owner(idOwner: int):
+    supabase = await get_supabase()
+    result = (
+        await supabase.table("horse")
+        .select("*")
+        .eq("fk_idOwner", idOwner)
+        .execute()
+    )
+    return result.data if result.data else []

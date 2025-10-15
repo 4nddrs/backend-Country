@@ -1,5 +1,6 @@
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime , date
+from typing import Optional
 
 
 class TotalControlBase(BaseModel):
@@ -18,14 +19,36 @@ class TotalControlBase(BaseModel):
     totalCharge: float
     fk_idOwner: int
     fk_idHorse: int
+    box: Optional[float] = None
+    section: Optional[float] = None
+    basket: Optional[float] = None
+    period: date
 
 
 class TotalControlCreate(TotalControlBase):
     pass
 
 
-class TotalControlUpdate(TotalControlBase):
-    pass
+class TotalControlUpdate(BaseModel):
+    toCaballerizo: Optional[float] = None
+    vaccines: Optional[float] = None
+    anemia: Optional[float] = None
+    deworming: Optional[float] = None
+    consumptionAlfaDiaKlg: Optional[float] = None
+    costAlfaBs: Optional[float] = None
+    daysConsumptionMonth: Optional[float] = None
+    consumptionAlphaMonthKlg: Optional[float] = None
+    costTotalAlphaBs: Optional[float] = None
+    cubeChala: Optional[float] = None
+    UnitCostChalaBs: Optional[float] = None
+    costTotalChalaBs: Optional[float] = None
+    totalCharge: Optional[float] = None
+    fk_idOwner: Optional[int] = None
+    fk_idHorse: Optional[int] = None
+    box: Optional[float] = None
+    section: Optional[float] = None
+    basket: Optional[float] = None
+    period: Optional[date] = None
 
 
 class TotalControlInDBBase(TotalControlBase):
