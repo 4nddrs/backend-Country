@@ -12,8 +12,7 @@ CREATE TABLE public.alpha_control (
   balance numeric NOT NULL,
   salePrice numeric NOT NULL,
   income numeric NOT NULL,
-  closingAmount text NOT NULL,
-  fk_idFoodProvider bigint NOT NULL,
+  fk_idFoodProvider bigint,
   CONSTRAINT alpha_control_pkey PRIMARY KEY (idAlphaControl),
   CONSTRAINT alpha_control_fk_idFoodProvider_fkey FOREIGN KEY (fk_idFoodProvider) REFERENCES public.food_provider(idFoodProvider)
 );
@@ -25,8 +24,8 @@ CREATE TABLE public.application_procedure (
   fk_idScheduledProcedure bigint NOT NULL,
   fk_idHorse bigint NOT NULL,
   CONSTRAINT application_procedure_pkey PRIMARY KEY (idApplicationProcedure),
-  CONSTRAINT application_procedure_fk_idHorse_fkey FOREIGN KEY (fk_idHorse) REFERENCES public.horse(idHorse),
-  CONSTRAINT application_procedure_fk_idScheduledProcedure_fkey FOREIGN KEY (fk_idScheduledProcedure) REFERENCES public.scheduled_procedure(idScheduledProcedure)
+  CONSTRAINT application_procedure_fk_idScheduledProcedure_fkey FOREIGN KEY (fk_idScheduledProcedure) REFERENCES public.scheduled_procedure(idScheduledProcedure),
+  CONSTRAINT application_procedure_fk_idHorse_fkey FOREIGN KEY (fk_idHorse) REFERENCES public.horse(idHorse)
 );
 CREATE TABLE public.attention_horse (
   idAttentionHorse bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -40,25 +39,27 @@ CREATE TABLE public.attention_horse (
   fk_idEmployee bigint NOT NULL,
   CONSTRAINT attention_horse_pkey PRIMARY KEY (idAttentionHorse),
   CONSTRAINT attention_horse_fk_idHorse_fkey FOREIGN KEY (fk_idHorse) REFERENCES public.horse(idHorse),
-  CONSTRAINT attention_horse_fk_idEmployee_fkey FOREIGN KEY (fk_idEmployee) REFERENCES public.employee(idEmployee),
-  CONSTRAINT attention_horse_fk_idMedicine_fkey FOREIGN KEY (fk_idMedicine) REFERENCES public.medicine(idMedicine)
+  CONSTRAINT attention_horse_fk_idMedicine_fkey FOREIGN KEY (fk_idMedicine) REFERENCES public.medicine(idMedicine),
+  CONSTRAINT attention_horse_fk_idEmployee_fkey FOREIGN KEY (fk_idEmployee) REFERENCES public.employee(idEmployee)
 );
 CREATE TABLE public.employee (
   idEmployee bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   fullName character varying NOT NULL,
-  ci character varying NOT NULL,
-  phoneNumber smallint NOT NULL,
+  ci bigint NOT NULL,
+  phoneNumber bigint NOT NULL,
   employeePhoto bytea,
   startContractDate date NOT NULL,
   endContractDate date NOT NULL,
   startTime timestamp without time zone NOT NULL,
   exitTime timestamp without time zone NOT NULL,
-  salary smallint NOT NULL,
+  salary numeric NOT NULL,
   status boolean DEFAULT false,
   fk_idPositionEmployee bigint NOT NULL,
+  uid uuid,
   CONSTRAINT employee_pkey PRIMARY KEY (idEmployee),
-  CONSTRAINT employee_fk_idPositionEmployee_fkey FOREIGN KEY (fk_idPositionEmployee) REFERENCES public.employee_position(idPositionEmployee)
+  CONSTRAINT employee_fk_idPositionEmployee_fkey FOREIGN KEY (fk_idPositionEmployee) REFERENCES public.employee_position(idPositionEmployee),
+  CONSTRAINT employee_uid_fkey FOREIGN KEY (uid) REFERENCES public.erp_user(uid)
 );
 CREATE TABLE public.employee_absence (
   idEmployeeAbsence bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -88,19 +89,16 @@ CREATE TABLE public.employees_shiftem (
   CONSTRAINT employees_shiftem_fk_idShiftEmployees_fkey FOREIGN KEY (fk_idShiftEmployees) REFERENCES public.shift_employed(idShiftEmployed)
 );
 CREATE TABLE public.erp_user (
-  idErpUser bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  uid uuid NOT NULL DEFAULT auth.uid(),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   username character varying NOT NULL,
   email character varying NOT NULL,
-  fk_idOwner bigint,
-  fk_idEmployee bigint,
-  fk_idAuthUser uuid,
+  isapproved boolean,
+  approved_at timestamp without time zone,
   fk_idUserRole bigint NOT NULL,
-  CONSTRAINT erp_user_pkey PRIMARY KEY (idErpUser),
-  CONSTRAINT erp_user_fk_idUserRole_fkey FOREIGN KEY (fk_idUserRole) REFERENCES public.user_role(idUserRole),
-  CONSTRAINT erp_user_fk_idAuthUser_fkey FOREIGN KEY (fk_idAuthUser) REFERENCES auth.users(id),
-  CONSTRAINT erp_user_fk_idEmployee_fkey FOREIGN KEY (fk_idEmployee) REFERENCES public.employee(idEmployee),
-  CONSTRAINT erp_user_fk_idOwner_fkey FOREIGN KEY (fk_idOwner) REFERENCES public.owner(idOwner)
+  CONSTRAINT erp_user_pkey PRIMARY KEY (uid),
+  CONSTRAINT erp_user_uid_fkey FOREIGN KEY (uid) REFERENCES auth.users(id),
+  CONSTRAINT erp_user_fk_idUserRole_fkey FOREIGN KEY (fk_idUserRole) REFERENCES public.user_role(idUserRole)
 );
 CREATE TABLE public.expenses (
   idExpenses bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -147,10 +145,34 @@ CREATE TABLE public.horse (
   fk_idRace bigint NOT NULL,
   fk_idOwner bigint NOT NULL,
   fl_idNutritionalPlan bigint,
+  state character varying NOT NULL,
+  stateSchool boolean NOT NULL,
   CONSTRAINT horse_pkey PRIMARY KEY (idHorse),
-  CONSTRAINT horse_fl_idNutritionalPlan_fkey FOREIGN KEY (fl_idNutritionalPlan) REFERENCES public.nutritional_plan(idNutritionalPlan),
   CONSTRAINT horse_fk_idRace_fkey FOREIGN KEY (fk_idRace) REFERENCES public.race(idRace),
-  CONSTRAINT horse_fk_idOwner_fkey FOREIGN KEY (fk_idOwner) REFERENCES public.owner(idOwner)
+  CONSTRAINT horse_fk_idOwner_fkey FOREIGN KEY (fk_idOwner) REFERENCES public.owner(idOwner),
+  CONSTRAINT horse_fl_idNutritionalPlan_fkey FOREIGN KEY (fl_idNutritionalPlan) REFERENCES public.nutritional_plan(idNutritionalPlan)
+);
+CREATE TABLE public.horse_assignments (
+  idHorseAssignments bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  assignmentDate date NOT NULL,
+  endDate date NOT NULL,
+  fk_idEmployee bigint NOT NULL,
+  fk_idHorse bigint NOT NULL,
+  CONSTRAINT horse_assignments_pkey PRIMARY KEY (idHorseAssignments),
+  CONSTRAINT horse_assignments_fk_idEmployee_fkey FOREIGN KEY (fk_idEmployee) REFERENCES public.employee(idEmployee),
+  CONSTRAINT horse_assignments_fk_idHorse_fkey FOREIGN KEY (fk_idHorse) REFERENCES public.horse(idHorse)
+);
+CREATE TABLE public.horse_report_month (
+  idHorseReportMonth bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  days bigint NOT NULL,
+  alphaKg numeric NOT NULL,
+  fk_idOwnerReportMonth bigint NOT NULL,
+  fk_idHorse bigint NOT NULL,
+  CONSTRAINT horse_report_month_pkey PRIMARY KEY (idHorseReportMonth),
+  CONSTRAINT horse_report_month_fk_idOwnerReportMonth_fkey FOREIGN KEY (fk_idOwnerReportMonth) REFERENCES public.owner_report_month(idOwnerReportMonth),
+  CONSTRAINT horse_report_month_fk_idHorse_fkey FOREIGN KEY (fk_idHorse) REFERENCES public.horse(idHorse)
 );
 CREATE TABLE public.income (
   idIncome bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -202,8 +224,8 @@ CREATE TABLE public.nutritional_plan_details (
   fk_idFood bigint NOT NULL,
   fk_idNutritionalPlan bigint NOT NULL,
   CONSTRAINT nutritional_plan_details_pkey PRIMARY KEY (idDetail),
-  CONSTRAINT nutritional_plan_details_fk_idNutritionalPlan_fkey FOREIGN KEY (fk_idNutritionalPlan) REFERENCES public.nutritional_plan(idNutritionalPlan),
-  CONSTRAINT nutritional_plan_details_fk_idFood_fkey FOREIGN KEY (fk_idFood) REFERENCES public.food_stock(idFood)
+  CONSTRAINT nutritional_plan_details_fk_idFood_fkey FOREIGN KEY (fk_idFood) REFERENCES public.food_stock(idFood),
+  CONSTRAINT nutritional_plan_details_fk_idNutritionalPlan_fkey FOREIGN KEY (fk_idNutritionalPlan) REFERENCES public.nutritional_plan(idNutritionalPlan)
 );
 CREATE TABLE public.owner (
   idOwner bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -214,14 +236,14 @@ CREATE TABLE public.owner (
   ci bigint NOT NULL,
   phoneNumber bigint NOT NULL,
   ownerPhoto bytea,
-  CONSTRAINT owner_pkey PRIMARY KEY (idOwner)
+  uid uuid,
+  CONSTRAINT owner_pkey PRIMARY KEY (idOwner),
+  CONSTRAINT owner_uid_fkey FOREIGN KEY (uid) REFERENCES public.erp_user(uid)
 );
 CREATE TABLE public.owner_report_month (
   idOwnerReportMonth bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   period numeric NOT NULL,
-  daysAlphaConsumption numeric NOT NULL,
-  quantityAlphaKg numeric NOT NULL,
   priceAlpha numeric NOT NULL,
   box numeric NOT NULL,
   section numeric NOT NULL,
@@ -237,6 +259,8 @@ CREATE TABLE public.owner_report_month (
   healthCardPayment numeric NOT NULL,
   other numeric NOT NULL,
   fk_idOwner bigint NOT NULL,
+  paymentDate timestamp without time zone,
+  state character varying NOT NULL,
   CONSTRAINT owner_report_month_pkey PRIMARY KEY (idOwnerReportMonth),
   CONSTRAINT owner_report_month_fk_idOwner_fkey FOREIGN KEY (fk_idOwner) REFERENCES public.owner(idOwner)
 );
@@ -245,6 +269,18 @@ CREATE TABLE public.race (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   nameRace character varying NOT NULL,
   CONSTRAINT race_pkey PRIMARY KEY (idRace)
+);
+CREATE TABLE public.salary_payment (
+  idSalaryPayment bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  amount numeric NOT NULL,
+  state character varying NOT NULL,
+  registrationDate timestamp without time zone NOT NULL,
+  paymentDate date,
+  updateDate timestamp without time zone NOT NULL,
+  fk_idEmployee bigint NOT NULL,
+  CONSTRAINT salary_payment_pkey PRIMARY KEY (idSalaryPayment),
+  CONSTRAINT salary_payment_fk_idEmployee_fkey FOREIGN KEY (fk_idEmployee) REFERENCES public.employee(idEmployee)
 );
 CREATE TABLE public.scheduled_procedure (
   idScheduledProcedure bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -283,8 +319,8 @@ CREATE TABLE public.task (
   fk_idTaskCategory bigint NOT NULL,
   fk_idEmployee bigint,
   CONSTRAINT task_pkey PRIMARY KEY (idTask),
-  CONSTRAINT task_fk_idEmployee_fkey FOREIGN KEY (fk_idEmployee) REFERENCES public.employee(idEmployee),
-  CONSTRAINT task_fk_idTaskCategory_fkey FOREIGN KEY (fk_idTaskCategory) REFERENCES public.task_category(idTaskCategory)
+  CONSTRAINT task_fk_idTaskCategory_fkey FOREIGN KEY (fk_idTaskCategory) REFERENCES public.task_category(idTaskCategory),
+  CONSTRAINT task_fk_idEmployee_fkey FOREIGN KEY (fk_idEmployee) REFERENCES public.employee(idEmployee)
 );
 CREATE TABLE public.task_category (
   idTaskCategory bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -292,6 +328,19 @@ CREATE TABLE public.task_category (
   categoryName character varying NOT NULL,
   description character varying,
   CONSTRAINT task_category_pkey PRIMARY KEY (idTaskCategory)
+);
+CREATE TABLE public.tip_payment (
+  idTipPayment bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  amount numeric NOT NULL,
+  state character varying NOT NULL,
+  registrationDate timestamp without time zone NOT NULL,
+  paymentDate date,
+  updateDate timestamp without time zone NOT NULL,
+  description character varying NOT NULL,
+  fk_idEmployee bigint NOT NULL,
+  CONSTRAINT tip_payment_pkey PRIMARY KEY (idTipPayment),
+  CONSTRAINT tip_payment_fk_idEmployee_fkey FOREIGN KEY (fk_idEmployee) REFERENCES public.employee(idEmployee)
 );
 CREATE TABLE public.total_control (
   idTotalControl bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -311,6 +360,10 @@ CREATE TABLE public.total_control (
   totalCharge numeric NOT NULL,
   fk_idOwner bigint NOT NULL,
   fk_idHorse bigint NOT NULL,
+  box numeric NOT NULL,
+  section numeric NOT NULL,
+  basket numeric NOT NULL,
+  period date NOT NULL,
   CONSTRAINT total_control_pkey PRIMARY KEY (idTotalControl),
   CONSTRAINT total_control_fk_idOwner_fkey FOREIGN KEY (fk_idOwner) REFERENCES public.owner(idOwner),
   CONSTRAINT total_control_fk_idHorse_fkey FOREIGN KEY (fk_idHorse) REFERENCES public.horse(idHorse)
@@ -341,7 +394,7 @@ CREATE TABLE public.vaccination_plan_application (
   fk_idHorse bigint NOT NULL,
   fk_idEmployee bigint NOT NULL,
   CONSTRAINT vaccination_plan_application_pkey PRIMARY KEY (idVaccinationPlanApplication),
+  CONSTRAINT vaccination plan application_fk_idVaccinationPlan_fkey FOREIGN KEY (fk_idVaccinationPlan) REFERENCES public.vaccination_plan(idVaccinationPlan),
   CONSTRAINT vaccination plan application_fk_idHorse_fkey FOREIGN KEY (fk_idHorse) REFERENCES public.horse(idHorse),
-  CONSTRAINT vaccination plan application_fk_idEmployee_fkey FOREIGN KEY (fk_idEmployee) REFERENCES public.employee(idEmployee),
-  CONSTRAINT vaccination plan application_fk_idVaccinationPlan_fkey FOREIGN KEY (fk_idVaccinationPlan) REFERENCES public.vaccination_plan(idVaccinationPlan)
+  CONSTRAINT vaccination plan application_fk_idEmployee_fkey FOREIGN KEY (fk_idEmployee) REFERENCES public.employee(idEmployee)
 );
