@@ -10,12 +10,9 @@ class MedicineBase(BaseModel):
     stock: int
     minStock: int
     boxExpirationDate: date
-    openedOn: date
-    daysAfterOpening: int
-    openedExpirationDate: date
     expiryStatus: str
     stockStatus: str
-    notifyDaysBefore: date
+    notifyDaysBefore: int
     isActive: Optional[bool] = None
     source: Optional[str] = None
     fk_idHorse: Optional[int] = None
