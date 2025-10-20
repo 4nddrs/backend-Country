@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.supabase_client import get_supabase  
 from app.routers import medicine
 from app.scheduler import start_scheduler
-from app.scripts.telegram_bot import router as telegram_router
+from app.routers import telegram
 from app.routers import (
     employee,
     employee_position,
@@ -36,7 +36,8 @@ from app.routers import (
     alpha_report,
     salary_payment,
     tip_payment,
-    horse_assignment, 
+    horse_assignment,
+    telegram,
 )
 
 app = FastAPI(title="backend-Country-API")
@@ -113,4 +114,4 @@ app.include_router(alpha_report.router)
 app.include_router(salary_payment.router)
 app.include_router(tip_payment.router)
 app.include_router(horse_assignment.router)
-app.include_router(telegram_router)
+app.include_router(telegram.router)

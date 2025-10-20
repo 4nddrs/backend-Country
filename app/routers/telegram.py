@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request
 from html import escape
+
 import httpx
 
 from app.supabase_client import get_supabase
@@ -55,10 +56,9 @@ async def telegram_webhook(request: Request):
 
     print(f"📩 Mensaje recibido de {chat_id_str}: {text}")
 
-    # Conexión a Supabase
     supabase = await get_supabase()
 
-    # Buscar usuario por chat_id
+    # Buscar usuario por chat_id almacenado
     user_q = (
         await supabase.table("erp_user")
         .select("uid, username, fk_idUserRole, telegram_chat_id, user_role(roleName)")
@@ -68,7 +68,6 @@ async def telegram_webhook(request: Request):
 
     user = user_q.data[0] if user_q.data else None
     if not user and chat_id_int is not None:
-        # Intento secundario comparando como número (por compatibilidad con columnas numéricas)
         user_q = (
             await supabase.table("erp_user")
             .select("uid, username, fk_idUserRole, telegram_chat_id, user_role(roleName)")
@@ -77,34 +76,37 @@ async def telegram_webhook(request: Request):
         )
         user = user_q.data[0] if user_q.data else None
 
-
-    # ===============================
-    # COMANDO /start → Registro inicial
-    # ===============================
     if text_lower == "/start":
         if not user:
-            # Buscar un usuario con rol Admin o Veterinario
-            roles_permitidos = [6, 8]  # 6 = Admin, 8 = Veterinario
-            rol_q = await supabase.table("erp_user") \
-                .select("uid, username, fk_idUserRole, user_role(roleName)") \
-                .in_("fk_idUserRole", roles_permitidos) \
-                .limit(1) \
+            roles_permitidos = [6, 8]  # Admin y Veterinario
+            rol_q = (
+                await supabase.table("erp_user")
+                .select("uid, username, fk_idUserRole, user_role(roleName)")
+                .in_("fk_idUserRole", roles_permitidos)
+                .limit(1)
                 .execute()
+            )
 
             user_match = rol_q.data[0] if rol_q.data else None
             if user_match:
-                # Vincular chat_id con usuario permitido
                 update_ok = False
                 try:
                     primary_resp = await supabase.table("erp_user").update(
-                        {"telegram_chat_id": chat_id_int if chat_id_int is not None else chat_id_str}
+                        {
+                            "telegram_chat_id": chat_id_int
+                            if chat_id_int is not None
+                            else chat_id_str
+                        }
                     ).eq("uid", user_match["uid"]).execute()
                     if getattr(primary_resp, "error", None):
                         raise RuntimeError(primary_resp.error)
                     print(f"ℹ️ Actualización primaria realizada: {primary_resp.data}")
                     update_ok = True
                 except Exception as exc:
-                    print(f"⚠️ Error guardando telegram_chat_id en formato principal: {exc}. Reintentando como texto.")
+                    print(
+                        f"⚠️ Error guardando telegram_chat_id en formato principal: {exc}. "
+                        "Reintentando como texto."
+                    )
                     try:
                         fallback_resp = await supabase.table("erp_user").update(
                             {"telegram_chat_id": chat_id_str}
@@ -127,6 +129,7 @@ async def telegram_webhook(request: Request):
                         "⚠️ No fue posible registrar tu chat en el sistema.",
                     )
                     return {"ok": True}
+
                 role_name = user_match["user_role"]["roleName"]
                 if role_name == "Admin":
                     reply = (
@@ -143,27 +146,31 @@ async def telegram_webhook(request: Request):
                         "Comandos disponibles:\n"
                         "• <code>/stock_medicamentos</code> → Ver stock de medicamentos"
                     )
-                print(f"✅ chat_id {chat_id_str} vinculado con usuario {user_match['username']} ({role_name})")
+                print(
+                    f"✅ chat_id {chat_id_str} vinculado con usuario {user_match['username']} "
+                    f"({role_name})"
+                )
             else:
-                reply = "⚠️ No se encontró ningún usuario con rol 'Admin' o 'Veterinario' en el sistema."
+                reply = (
+                    "⚠️ No se encontró ningún usuario con rol 'Admin' o 'Veterinario' en el sistema."
+                )
         else:
-            # Ya estaba registrado
             role_name = user["user_role"]["roleName"]
             reply = (
                 f"👋 Bienvenido nuevamente, <b>{escape(user['username'])}</b> ({escape(role_name)}).\n\n"
                 "Ya estás registrado para recibir notificaciones automáticas a las <b>20:00</b> 🕗.\n\n"
                 "Comandos disponibles:\n"
                 "• <code>/stock_medicamentos</code> → Ver stock de medicamentos\n"
-                + ("• <code>/stock_comida</code> → Ver stock de alimentos" if role_name == "Admin" else "")
+                + (
+                    "• <code>/stock_comida</code> → Ver stock de alimentos"
+                    if role_name == "Admin"
+                    else ""
+                )
             )
 
-        # Enviar respuesta
         await _responder(chat_id_str, reply)
         return {"ok": True}
 
-    # ===============================
-    # Validar rol permitido
-    # ===============================
     if not user or user["user_role"]["roleName"] not in ["Admin", "Veterinario"]:
         await _responder(
             chat_id_str,
@@ -173,29 +180,21 @@ async def telegram_webhook(request: Request):
 
     role_name = user["user_role"]["roleName"]
 
-    # ===============================
-    # Comandos secundarios
-    # ===============================
     if text_lower == "/stock_medicamentos":
-        reply = await obtener_stock("medicine")
+        reply = await _obtener_stock("medicine")
     elif text_lower == "/stock_comida":
         if role_name == "Admin":
-            reply = await obtener_stock("food_stock")
+            reply = await _obtener_stock("food_stock")
         else:
             reply = "🚫 Solo los administradores pueden consultar el stock de alimentos."
     else:
         reply = "❓ Comando no reconocido. Usa <code>/stock_medicamentos</code> o <code>/stock_comida</code>."
 
-    # Enviar respuesta final
     await _responder(chat_id_str, reply)
-
     return {"ok": True}
 
 
-# ============================================================
-# Función auxiliar: obtener stock de medicamentos y alimentos
-# ============================================================
-async def obtener_stock(tabla: str):
+async def _obtener_stock(tabla: str):
     supabase = await get_supabase()
 
     if tabla == "medicine":
@@ -209,8 +208,12 @@ async def obtener_stock(tabla: str):
             texto += f"{estado} {escape(m['name'])} — {m['stock']} unidades\n"
         return texto
 
-    elif tabla == "food_stock":
-        res = await supabase.table("food_stock").select("foodName, stock, minStock").execute()
+    if tabla == "food_stock":
+        res = (
+            await supabase.table("food_stock")
+            .select("foodName, stock, minStock")
+            .execute()
+        )
         items = res.data or []
         if not items:
             return "⚠️ No hay registros de alimentos."
@@ -219,3 +222,5 @@ async def obtener_stock(tabla: str):
             estado = "🟢" if f["stock"] > f["minStock"] else "🔴"
             texto += f"{estado} {escape(f['foodName'])} — {f['stock']} kg\n"
         return texto
+
+    return "⚠️ Tabla no soportada."
