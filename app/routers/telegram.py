@@ -27,7 +27,16 @@ async def telegram_webhook(request: Request):
     Webhook principal del bot de Telegram.
     Escucha todos los mensajes enviados al bot y responde según el rol y comando.
     """
-    data = await request.json()
+    try:
+        data = await request.json()
+    except Exception as exc:
+        # Telegram puede enviar peticiones vacías para pruebas o webhooks mal configurados
+        body = await request.body()
+        if not body:
+            print("⚠️ Webhook recibido sin cuerpo JSON; se ignora la petición.")
+            return {"ok": True}
+        print(f"❌ Error parseando JSON del webhook: {exc}. Cuerpo bruto: {body!r}")
+        return {"ok": False}
 
     message = data.get("message")
     if not message:
