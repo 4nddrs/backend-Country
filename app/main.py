@@ -1,9 +1,8 @@
+from threading import Thread
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.supabase_client import get_supabase  
-from app.routers import medicine
-from app.scheduler import start_scheduler
-from app.routers import telegram
+from app.scripts.telegram_bot import run_bot 
 from app.routers import (
     employee,
     employee_position,
@@ -36,8 +35,7 @@ from app.routers import (
     alpha_report,
     salary_payment,
     tip_payment,
-    horse_assignment,
-    telegram,
+    horse_assignment, 
 )
 
 app = FastAPI(title="backend-Country-API")
@@ -52,21 +50,21 @@ app.add_middleware(
 )
 
 
-# ✅ Startup: probar conexión a Supabase
+# ✅ Startup: probar conexión a Supabase y arrancar bot
 @app.on_event("startup")
-async def startup_event():
+async def on_startup():
     try:
         supabase = await get_supabase()
-        response = await supabase.table("employee_position").select("*").limit(1).execute()
+        response = (
+            await supabase.table("employee_position").select("*").limit(1).execute()
+        )
         print("✅ Conexión con Supabase exitosa")
     except Exception as e:
         print("❌ Error de conexión con Supabase:", str(e))
 
-    # 2️⃣ Iniciar Scheduler
-    print("🚀 Iniciando servidor FastAPI y programador de tareas (scheduler)...")
-    start_scheduler()
-    print("✅ Scheduler activo — verificará alertas todos los días a las 20:00 (hora Bolivia)")
-
+    # 🚀 Iniciar el bot de Telegram en un hilo separado
+    Thread(target=run_bot, daemon=True).start()
+    print("🤖 Bot de Telegram iniciado correctamente")
 
 
 # ✅ Shutdown: no hace falta cerrar nada en supabase-py
@@ -114,4 +112,3 @@ app.include_router(alpha_report.router)
 app.include_router(salary_payment.router)
 app.include_router(tip_payment.router)
 app.include_router(horse_assignment.router)
-app.include_router(telegram.router)
