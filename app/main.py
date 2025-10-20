@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.supabase_client import get_supabase
 import requests 
+from app.scheduler import start_scheduler
 from app.routers import telegram
 from app.routers import (
     employee,
@@ -73,7 +74,9 @@ async def on_startup():
         print("🤖 Webhook configurado:", resp.json())
     except Exception as e:
         print("⚠️ No se pudo registrar el webhook:", str(e))
-
+        
+    # Iniciar el verificador de medicamentos
+    start_scheduler()
 
 # ✅ Shutdown: no hace falta cerrar nada en supabase-py
 @app.on_event("shutdown")
