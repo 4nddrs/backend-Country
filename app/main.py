@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.supabase_client import get_supabase  # ✅ usamos supabase en vez de engine/Base
+from app.supabase_client import get_supabase  
+from app.routers import medicine
+from app.scheduler import start_scheduler
+from app.scripts.telegram_bot import router as telegram_router
 from app.routers import (
     employee,
     employee_position,
@@ -106,3 +109,12 @@ app.include_router(alpha_report.router)
 app.include_router(salary_payment.router)
 app.include_router(tip_payment.router)
 app.include_router(horse_assignment.router)
+app.include_router(telegram_router)
+
+
+# 🚀 Scheduler automático al iniciar FastAPI
+@app.on_event("startup")
+async def startup_event():
+    print("🚀 Iniciando servidor FastAPI y programador de tareas (scheduler)...")
+    start_scheduler()
+    print("✅ Scheduler activo — verificará alertas todos los días a las 20:00 (hora Bolivia)")

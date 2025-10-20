@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, status
 from typing import List
 from app.crud import medicine as crud_medicine
 from app.schemas import medicine as schemas_medicine
+from app.scripts.telegram_notifier import notificar_alertas_telegram
 
 router = APIRouter(prefix="/medicines", tags=["Medicamentos"])
 
@@ -45,8 +46,15 @@ async def delete_medicine(medicine_id: int):
         raise HTTPException(status_code=404, detail="Medicamento no encontrado o ya eliminado.")
     return deleted_medicine
 
-@router.post("/notify_test")
-async def notify_medicines_test():
-    from app.scripts.medicine_cron import notificar_medicamentos_por_vencer
-    await notificar_medicamentos_por_vencer()
-    return {"message": "Notificaciones enviadas con UltraMsg."}
+
+@router.post("/notify-expiring", tags=["Notificaciones"])
+async def notify_expiring_medicines():
+    """Prueba manual del envío de alertas de Telegram (medicamentos por vencer y stock bajo)."""
+    try:
+        await notificar_alertas_telegram()
+        return {
+            "status": "success",
+            "message": "🔔 Notificaciones de Telegram ejecutadas manualmente. Revisa los chats de los administradores."
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al enviar notificaciones: {e}")
