@@ -53,15 +53,19 @@ app.add_middleware(
 
 # ✅ Startup: probar conexión a Supabase
 @app.on_event("startup")
-async def on_startup():
+async def startup_event():
     try:
         supabase = await get_supabase()
-        response = (
-            await supabase.table("employee_position").select("*").limit(1).execute()
-        )
+        response = await supabase.table("employee_position").select("*").limit(1).execute()
         print("✅ Conexión con Supabase exitosa")
     except Exception as e:
         print("❌ Error de conexión con Supabase:", str(e))
+
+    # 2️⃣ Iniciar Scheduler
+    print("🚀 Iniciando servidor FastAPI y programador de tareas (scheduler)...")
+    start_scheduler()
+    print("✅ Scheduler activo — verificará alertas todos los días a las 20:00 (hora Bolivia)")
+
 
 
 # ✅ Shutdown: no hace falta cerrar nada en supabase-py
@@ -110,11 +114,3 @@ app.include_router(salary_payment.router)
 app.include_router(tip_payment.router)
 app.include_router(horse_assignment.router)
 app.include_router(telegram_router)
-
-
-# 🚀 Scheduler automático al iniciar FastAPI
-@app.on_event("startup")
-async def startup_event():
-    print("🚀 Iniciando servidor FastAPI y programador de tareas (scheduler)...")
-    start_scheduler()
-    print("✅ Scheduler activo — verificará alertas todos los días a las 20:00 (hora Bolivia)")

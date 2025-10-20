@@ -1,3 +1,18 @@
-SUPABASE_URL = "https://dqhtzvkbgjhnjnmcixcp.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxaHR6dmtiZ2pobmpubWNpeGNwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NTAxNjAzOCwiZXhwIjoyMDcwNTkyMDM4fQ.VAGtVi21XIXZWRsX0lzfUIZXWZPwWOvkVgaPtPET6R0"
-TELEGRAM_BOT_TOKEN = "8225256599:AAEWeT5H-LP069Gz631-1qBgDOyn6MwS5Zs"
+from dotenv import load_dotenv
+import os
+
+# Cargar automáticamente variables desde .env
+load_dotenv()
+
+# 🔹 Supabase
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+# 🔹 Telegram Bot
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+
+# Verificación opcional (solo para depuración local)
+if not all([SUPABASE_URL, SUPABASE_KEY, TELEGRAM_BOT_TOKEN]):
+    print("⚠️ [config.py] Faltan variables de entorno (.env no cargado o incompleto).")
+else:
+    print("✅ [config.py] Variables de entorno cargadas correctamente.")
