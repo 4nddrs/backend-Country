@@ -10,6 +10,7 @@ class ErpUserBase(BaseModel):
     fk_idUserRole: int
     isapproved: Optional[bool] = None
     approved_at: Optional[datetime] = None
+    telegram_chat_id: Optional[int] = None
 
 
 class ErpUserCreate(ErpUserBase):
@@ -22,6 +23,7 @@ class ErpUserUpdate(BaseModel):
     fk_idUserRole: Optional[int] = None
     isapproved: Optional[bool] = None
     approved_at: Optional[datetime] = None
+    telegram_chat_id: Optional[int] = None
 
 
 class ErpUserInDBBase(ErpUserBase):
