@@ -74,7 +74,7 @@ async def on_startup():
         print("🤖 Webhook configurado:", resp.json())
     except Exception as e:
         print("⚠️ No se pudo registrar el webhook:", str(e))
-        
+
     # Iniciar el verificador de medicamentos
     start_scheduler()
 
@@ -124,3 +124,14 @@ app.include_router(salary_payment.router)
 app.include_router(tip_payment.router)
 app.include_router(horse_assignment.router)
 app.include_router(telegram.router)
+
+# === 🧪 Endpoint de prueba manual de notificaciones ===
+#@app.get("/test-notify")
+#async def test_notify():
+    #"""
+    #Ejecuta manualmente la verificación de medicamentos
+    #(sin esperar al scheduler programado).
+    #"""
+    #from app.scheduler import verificar_medicamentos
+    #await verificar_medicamentos()
+    #return {"status": "Notificaciones ejecutadas manualmente ✅"}
