@@ -90,12 +90,13 @@ async def verificar_medicamentos():
 def start_scheduler():
     """
     Inicia el verificador automático de medicamentos.
+    Se ejecuta cada día a las 21:30 hora de Bolivia (01:30 UTC).
     """
     scheduler.add_job(
         lambda: asyncio.run(verificar_medicamentos()),
         "cron",
-        hour=21,  # UTC = 19 Bolivia
-        minute=1,
+        hour=1,   # 01 UTC = 21 Bolivia
+        minute=30,
     )
     scheduler.start()
-    print("🕐 Scheduler de medicamentos iniciado (ejecutará cada día a las 19:35 Bolivia / 23:35 UTC).")
+    print("🕐 Scheduler de medicamentos iniciado (ejecutará cada día a las 21:30 Bolivia / 01:30 UTC).")
