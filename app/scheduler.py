@@ -94,8 +94,8 @@ def start_scheduler():
     scheduler.add_job(
         lambda: asyncio.run(verificar_medicamentos()),
         "cron",
-        hour=20,  # UTC = 19 Bolivia
-        minute=25,
+        hour=21,  # UTC = 19 Bolivia
+        minute=1,
     )
     scheduler.start()
     print("🕐 Scheduler de medicamentos iniciado (ejecutará cada día a las 19:35 Bolivia / 23:35 UTC).")
