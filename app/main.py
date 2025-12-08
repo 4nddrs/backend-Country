@@ -39,6 +39,7 @@ from app.routers import (
     tip_payment,
     horse_assignment, 
     telegram,
+    dashboard,
 )
 
 app = FastAPI(title="backend-Country-API")
@@ -124,6 +125,7 @@ app.include_router(salary_payment.router)
 app.include_router(tip_payment.router)
 app.include_router(horse_assignment.router)
 app.include_router(telegram.router)
+app.include_router(dashboard.router)
 
 # === 🧪 Endpoint de prueba manual de notificaciones ===
 #@app.get("/test-notify")

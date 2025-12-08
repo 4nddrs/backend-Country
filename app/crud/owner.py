@@ -13,6 +13,16 @@ async def get_owner(owner_id: int):
     )
     return result.data if result.data else None
 
+async def get_owner_by_uid(uid: str):
+    supabase = await get_supabase()
+    result = (
+        await supabase.table("owner")
+        .select("*")
+        .eq("uid", uid)
+        .single()
+        .execute()
+    )
+    return result.data if result.data else None
 
 async def get_owners(skip: int = 0, limit: int = 100):
     supabase = await get_supabase()

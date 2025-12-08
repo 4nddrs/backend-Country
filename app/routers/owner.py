@@ -30,6 +30,12 @@ async def list_owners(skip: int = 0, limit: int = 100):
     owners = await crud_owner.get_owners(skip=skip, limit=limit)
     return owners
 
+@router.get("/by_uid/{uid}", response_model=schemas_owner.Owner)
+async def get_owner_by_uid(uid: str):
+    owner = await crud_owner.get_owner_by_uid(uid)
+    if not owner:
+        raise HTTPException(status_code=404, detail="Propietario no encontrado.")
+    return owner
 
 @router.get("/{owner_id}", response_model=schemas_owner.Owner)
 async def get_owner(owner_id: int):
