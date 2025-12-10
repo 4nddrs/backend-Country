@@ -1,3 +1,9 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 SUPABASE_URL = "https://dqhtzvkbgjhnjnmcixcp.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxaHR6dmtiZ2pobmpubWNpeGNwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NTAxNjAzOCwiZXhwIjoyMDcwNTkyMDM4fQ.VAGtVi21XIXZWRsX0lzfUIZXWZPwWOvkVgaPtPET6R0"
 TELEGRAM_BOT_TOKEN = "8225256599:AAEWeT5H-LP069Gz631-1qBgDOyn6MwS5Zs"
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
