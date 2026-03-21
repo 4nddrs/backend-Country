@@ -3,6 +3,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.supabase_client import get_supabase
 import requests 
+import asyncio
+import sys
 from app.scheduler import start_scheduler
 from app.routers import telegram
 from app.routers import (
@@ -41,6 +43,9 @@ from app.routers import (
     telegram,
     dashboard,
 )
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 app = FastAPI(title="backend-Country-API")
 
