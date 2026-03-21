@@ -1,12 +1,14 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, UploadFile, File, status
 from typing import List
 from app.crud import employee as crud_employee
 from app.schemas import employee as schemas_employee
+from app.utils.storage import upload_employee_image, delete_employee_image
 from pydantic import BaseModel, EmailStr
 from app.supabase_client import get_supabase_admin_client
 from datetime import datetime
 
 router = APIRouter(prefix="/employees", tags=["employees"])
+
 
 class EmployeeAccountCreate(BaseModel):
     email: EmailStr
@@ -14,23 +16,15 @@ class EmployeeAccountCreate(BaseModel):
     username: str
     fullName: str
 
+
 @router.post("/create-account", status_code=status.HTTP_201_CREATED)
-def create_employee_account(account_data: EmployeeAccountCreate):  # <- Cambié 'async def' a 'def'
-    """
-    Crea una cuenta de usuario en Supabase Auth y en erp_user para un empleado.
-    La cuenta se crea pre-aprobada con rol de Caballerizo (rol 9).
-    """
+def create_employee_account(account_data: EmployeeAccountCreate):
     try:
         supabase_admin = get_supabase_admin_client()
-        
-        # Validar longitud de contraseña
+
         if len(account_data.password) < 6:
-            raise HTTPException(
-                status_code=400, 
-                detail="La contraseña debe tener al menos 6 caracteres"
-            )
-        
-        # 1. Crear usuario en Supabase Auth
+            raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 6 caracteres")
+
         try:
             auth_response = supabase_admin.auth.admin.create_user({
                 "email": account_data.email,
@@ -41,30 +35,18 @@ def create_employee_account(account_data: EmployeeAccountCreate):  # <- Cambié 
                     "username": account_data.username
                 }
             })
-            
             if not auth_response.user:
-                raise HTTPException(
-                    status_code=400,
-                    detail="No se pudo crear el usuario en Supabase Auth"
-                )
-            
+                raise HTTPException(status_code=400, detail="No se pudo crear el usuario en Supabase Auth")
             user_uid = auth_response.user.id
-            
-        except HTTPException:  # <- Agregué esto para re-lanzar HTTPException
+
+        except HTTPException:
             raise
         except Exception as auth_error:
             error_message = str(auth_error)
             if "already registered" in error_message.lower() or "already exists" in error_message.lower():
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"El correo {account_data.email} ya está registrado"
-                )
-            raise HTTPException(
-                status_code=400,
-                detail=f"Error al crear usuario en Supabase: {error_message}"
-            )
-        
-        # 2. Crear registro en erp_user con rol de Caballerizo (9)
+                raise HTTPException(status_code=400, detail=f"El correo {account_data.email} ya está registrado")
+            raise HTTPException(status_code=400, detail=f"Error al crear usuario en Supabase: {error_message}")
+
         try:
             erp_user_data = {
                 "uid": user_uid,
@@ -75,38 +57,26 @@ def create_employee_account(account_data: EmployeeAccountCreate):  # <- Cambié 
                 "approved_at": datetime.utcnow().isoformat(),
                 "created_at": datetime.utcnow().isoformat()
             }
-            
             erp_user_response = supabase_admin.table("erp_user").insert(erp_user_data).execute()
-            
             if not erp_user_response.data:
                 try:
                     supabase_admin.auth.admin.delete_user(user_uid)
                 except:
                     pass
-                raise HTTPException(
-                    status_code=400,
-                    detail="No se pudo crear el registro en erp_user"
-                )
-                
-        except HTTPException:  # <- Agregué esto también
+                raise HTTPException(status_code=400, detail="No se pudo crear el registro en erp_user")
+
+        except HTTPException:
             raise
         except Exception as db_error:
             try:
                 supabase_admin.auth.admin.delete_user(user_uid)
             except:
                 pass
-            
             error_message = str(db_error)
             if "duplicate key" in error_message.lower() or "unique" in error_message.lower():
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"El usuario '{account_data.username}' ya existe"
-                )
-            raise HTTPException(
-                status_code=500,
-                detail=f"Error al crear registro en base de datos: {error_message}"
-            )
-        
+                raise HTTPException(status_code=400, detail=f"El usuario '{account_data.username}' ya existe")
+            raise HTTPException(status_code=500, detail=f"Error al crear registro en base de datos: {error_message}")
+
         return {
             "uid": user_uid,
             "username": account_data.username,
@@ -114,21 +84,16 @@ def create_employee_account(account_data: EmployeeAccountCreate):  # <- Cambié 
             "message": "Cuenta de empleado creada exitosamente",
             "role": "Caballerizo"
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error inesperado al crear cuenta: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error inesperado al crear cuenta: {str(e)}")
 
 
-@router.post(
-    "/",
-    response_model=schemas_employee.Employee,
-    status_code=status.HTTP_201_CREATED,
-)
+# ── CRUD estándar ──────────────────────────────────────────────────────────────
+
+@router.post("/", response_model=schemas_employee.Employee, status_code=status.HTTP_201_CREATED)
 async def create_employee(employee_in: schemas_employee.EmployeeCreate):
     try:
         employee = await crud_employee.create_employee(employee_in)
@@ -143,8 +108,7 @@ async def create_employee(employee_in: schemas_employee.EmployeeCreate):
 
 @router.get("/", response_model=List[schemas_employee.Employee])
 async def list_employees(skip: int = 0, limit: int = 100):
-    employees = await crud_employee.get_employees(skip=skip, limit=limit)
-    return employees
+    return await crud_employee.get_employees(skip=skip, limit=limit)
 
 
 @router.get("/{idEmployee}", response_model=schemas_employee.Employee)
@@ -156,10 +120,7 @@ async def get_employee(idEmployee: int):
 
 
 @router.put("/{idEmployee}", response_model=schemas_employee.Employee)
-async def update_employee(
-    idEmployee: int,
-    employee_in: schemas_employee.EmployeeUpdate,
-):
+async def update_employee(idEmployee: int, employee_in: schemas_employee.EmployeeUpdate):
     try:
         updated = await crud_employee.update_employee(idEmployee, employee_in)
         if not updated:
@@ -173,7 +134,42 @@ async def update_employee(
 
 @router.delete("/{idEmployee}", response_model=schemas_employee.Employee)
 async def delete_employee(idEmployee: int):
-    deleted = await crud_employee.delete_employee(idEmployee)
-    if not deleted:
+    employee = await crud_employee.get_employee(idEmployee)
+    if not employee:
         raise HTTPException(status_code=404, detail="Empleado no encontrado.")
-    return deleted
+
+    if employee.get("image_url"):
+        await delete_employee_image(employee["image_url"])
+
+    return await crud_employee.delete_employee(idEmployee)
+
+
+# ── Gestión de imagen ──────────────────────────────────────────────────────────
+
+@router.post("/{idEmployee}/image", response_model=schemas_employee.Employee)
+async def upload_employee_image_endpoint(
+    idEmployee: int,
+    image: UploadFile = File(..., description="JPEG, PNG o WebP. Máx 5 MB."),
+):
+    employee = await crud_employee.get_employee(idEmployee)
+    if not employee:
+        raise HTTPException(status_code=404, detail="Empleado no encontrado.")
+
+    image_url = await upload_employee_image(idEmployee, image)
+    updated = await crud_employee.update_employee_image(idEmployee, image_url)
+    if not updated:
+        raise HTTPException(status_code=500, detail="No se pudo guardar la URL de la imagen.")
+    return updated
+
+
+@router.delete("/{idEmployee}/image")
+async def delete_employee_image_endpoint(idEmployee: int):
+    employee = await crud_employee.get_employee(idEmployee)
+    if not employee:
+        raise HTTPException(status_code=404, detail="Empleado no encontrado.")
+    if not employee.get("image_url"):
+        raise HTTPException(status_code=404, detail="El empleado no tiene imagen registrada.")
+
+    await delete_employee_image(employee["image_url"])
+    await crud_employee.update_employee_image(idEmployee, None)
+    return {"detail": "Imagen eliminada correctamente."}

@@ -8,7 +8,6 @@ class EmployeeBase(BaseModel):
     fullName: str
     ci: int
     phoneNumber: int
-    employeePhoto: Optional[str] = None 
     startContractDate: date
     endContractDate: date
     startTime: datetime
@@ -16,20 +15,17 @@ class EmployeeBase(BaseModel):
     salary: Decimal
     status: Optional[bool] = False
     fk_idPositionEmployee: int
-    uid: Optional[str] = None 
+    uid: Optional[str] = None
 
 
 class EmployeeCreate(EmployeeBase):
-    """Datos requeridos para crear un empleado"""
     pass
 
 
 class EmployeeUpdate(BaseModel):
-    """Datos opcionales para actualizar un empleado"""
     fullName: Optional[str] = None
     ci: Optional[int] = None
     phoneNumber: Optional[int] = None
-    employeePhoto: Optional[str] = None
     startContractDate: Optional[date] = None
     endContractDate: Optional[date] = None
     startTime: Optional[datetime] = None
@@ -37,12 +33,12 @@ class EmployeeUpdate(BaseModel):
     salary: Optional[Decimal] = None
     status: Optional[bool] = None
     fk_idPositionEmployee: Optional[int] = None
-    uid: Optional[str] = None  
+    uid: Optional[str] = None
 
 
 class EmployeeInDBBase(EmployeeBase):
-    """Estructura base para datos leídos desde la BD"""
     idEmployee: int
+    image_url: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -50,5 +46,4 @@ class EmployeeInDBBase(EmployeeBase):
 
 
 class Employee(EmployeeInDBBase):
-    """Modelo de respuesta hacia el frontend"""
     pass
