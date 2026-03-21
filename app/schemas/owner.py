@@ -9,8 +9,7 @@ class OwnerBase(BaseModel):
     SecondName: Optional[str] = None
     ci: int
     phoneNumber: int
-    ownerPhoto: Optional[str] = None  
-    uid: Optional[str] = None  
+    uid: Optional[str] = None
 
 
 class OwnerCreate(OwnerBase):
@@ -23,12 +22,14 @@ class OwnerUpdate(BaseModel):
     SecondName: Optional[str] = None
     ci: Optional[int] = None
     phoneNumber: Optional[int] = None
-    ownerPhoto: Optional[str] = None 
-    uid: Optional[str] = None 
+    uid: Optional[str] = None
+    # image_url NO se toca desde aquí.
+    # Se gestiona exclusivamente por POST /owner/{id}/image
 
 
 class OwnerInDBBase(OwnerBase):
     idOwner: int
+    image_url: Optional[str] = None  # URL pública de Supabase Storage (VARCHAR, nullable)
     created_at: datetime
 
     class Config:
