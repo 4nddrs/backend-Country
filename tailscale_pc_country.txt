@@ -1,0 +1,166 @@
+==============================================================
+  GUÍA DE CONFIGURACIÓN TAILSCALE — PC_COUNTRY (Subnet Router)
+  Rol: Puente de red — expone la LAN del Country al Tailnet
+==============================================================
+
+Esta PC debe estar SIEMPRE encendida cuando quieras acceder a
+la cámara desde fuera. Actúa como "puerta de entrada" a la red
+local 192.168.0.0/24 donde está la cámara Tapo.
+
+--------------------------------------------------------------
+PASO 1 — INSTALAR TAILSCALE
+--------------------------------------------------------------
+1. Abre el navegador y ve a:
+   https://tailscale.com/download
+
+2. Descarga el instalador para Windows.
+
+3. Ejecuta el instalador y sigue los pasos (siguiente, siguiente).
+
+4. Al terminar, aparecerá el ícono de Tailscale en la barra
+   de tareas (ícono verde/gris).
+
+
+--------------------------------------------------------------
+PASO 2 — INICIAR SESIÓN EN TAILSCALE
+--------------------------------------------------------------
+1. Haz clic en el ícono de Tailscale en la barra de tareas.
+
+2. Haz clic en "Log in".
+
+3. Se abrirá el navegador. Inicia sesión con tu cuenta Google,
+   GitHub, o Microsoft (crea una cuenta Tailscale si no tienes).
+
+   IMPORTANTE: Usa la MISMA cuenta en TODAS las PCs que
+   vayas a conectar (PC_COUNTRY, PC_MISHEL, VPS).
+
+4. Una vez autenticado, la PC aparecerá en tu "Tailnet"
+   (red privada de Tailscale).
+
+
+--------------------------------------------------------------
+PASO 3 — HABILITAR SUBNET ROUTER (CLAVE)
+--------------------------------------------------------------
+Esto permite que otras PCs en el Tailnet accedan a la red
+local 192.168.0.0/24 del Country a través de esta PC.
+
+1. Abre PowerShell como ADMINISTRADOR:
+   - Presiona Win + X → "Windows PowerShell (Admin)"
+   o
+   - Busca "PowerShell" → clic derecho → "Ejecutar como administrador"
+
+2. Ejecuta este comando:
+
+   tailscale up --advertise-routes=192.168.0.0/24 --accept-routes
+
+   Explicación:
+   --advertise-routes=192.168.0.0/24  → "Comparto mi red local"
+   --accept-routes                    → "También acepto rutas de otros"
+
+3. Verás un mensaje como:
+   "To authorize subnet routes, visit the admin console."
+
+4. Abre el Admin Console de Tailscale:
+   https://login.tailscale.com/admin/machines
+
+5. Busca "PC_COUNTRY" en la lista de máquinas.
+
+6. Haz clic en los "..." (tres puntos) de esa máquina.
+
+7. Selecciona "Edit route settings..." (o "Rutas de subred").
+
+8. Activa el toggle para "192.168.0.0/24".
+
+9. Haz clic en "Save".
+
+
+--------------------------------------------------------------
+PASO 4 — HABILITAR IP FORWARDING EN WINDOWS
+--------------------------------------------------------------
+Windows no reenvía paquetes entre interfaces por defecto.
+Debes habilitarlo para que funcione el subnet routing.
+
+En PowerShell (Administrador), ejecuta:
+
+   reg add HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters /v IPEnableRouter /t REG_DWORD /d 1 /f
+
+Luego reinicia la PC para que el cambio tome efecto.
+
+Después del reinicio, vuelve a ejecutar:
+   tailscale up --advertise-routes=192.168.0.0/24 --accept-routes
+
+
+--------------------------------------------------------------
+PASO 5 — VERIFICAR QUE TAILSCALE ESTÁ ACTIVO
+--------------------------------------------------------------
+En PowerShell ejecuta:
+
+   tailscale status
+
+Deberías ver algo como:
+   100.x.x.1   PC-Country   windows   active; offers exit node, ...
+
+La IP que empieza con 100.x.x.x es tu IP en el Tailnet.
+Anota esa IP — aunque en realidad no la necesitarás, porque
+accederás directamente a 192.168.0.114 (la IP de la cámara).
+
+
+--------------------------------------------------------------
+PASO 6 — VERIFICAR ACCESO A LA CÁMARA DESDE ESTA PC
+--------------------------------------------------------------
+Antes de probar desde lejos, confirma que desde esta PC
+puedes abrir la cámara con VLC:
+
+   rtsp://CountryERP:CountryERP123%23@192.168.0.114:554/stream1
+
+Si VLC lo reproduce → la red local funciona correctamente.
+
+
+--------------------------------------------------------------
+PASO 7 — CONFIGURAR TAILSCALE PARA INICIAR AUTOMÁTICAMENTE
+--------------------------------------------------------------
+Por defecto Tailscale ya inicia con Windows.
+Para confirmar:
+1. Abre el ícono de Tailscale en la barra de tareas.
+2. Verifica que diga "Connected" (verde).
+3. Si no inicia solo: Inicio → Aplicaciones de inicio →
+   verifica que "Tailscale" esté habilitado.
+
+
+--------------------------------------------------------------
+RESUMEN VISUAL
+--------------------------------------------------------------
+
+  [PC_COUNTRY] ←── LAN local ──→ [Cámara 192.168.0.114]
+       │
+       │  Tailscale VPN (100.x.x.x)
+       │
+  [Internet]
+       │
+  [PC_MISHEL / VPS Backend]
+       │
+  FastAPI accede a rtsp://192.168.0.114 ← como si estuviera
+                                         en la misma red
+
+
+--------------------------------------------------------------
+SOLUCIÓN DE PROBLEMAS
+--------------------------------------------------------------
+- "tailscale: command not found" en PowerShell:
+  → Reinicia PowerShell o agrega al PATH:
+    C:\Program Files\Tailscale\
+
+- La ruta no aparece en el Admin Console:
+  → Espera 1-2 minutos y recarga la página.
+
+- La cámara no responde desde otra red:
+  → Verifica que el firewall de Windows no bloquee Tailscale:
+    Configuración → Windows Defender Firewall → Aplicaciones
+    → Asegúrate que "Tailscale" tenga permiso en redes privadas
+    y públicas.
+
+- Tailscale se desconecta al cerrar sesión de Windows:
+  → En el Admin Console activa "Key expiry" deshabilitado para
+    esta máquina (Settings → Key expiry → Disable).
+
+==============================================================

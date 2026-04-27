@@ -1,0 +1,168 @@
+==============================================================
+  GUÍA DE CONFIGURACIÓN TAILSCALE — PC_MISHEL (Cliente)
+  Rol: Tu laptop — corre el backend FastAPI y el frontend React
+==============================================================
+
+Esta es tu laptop personal desde donde desarrollas y donde
+correrá el backend. Tailscale la conecta al mismo Tailnet que
+PC_COUNTRY, permitiéndote acceder a 192.168.0.114 (la cámara)
+como si estuvieras físicamente en el Country.
+
+--------------------------------------------------------------
+PASO 1 — INSTALAR TAILSCALE
+--------------------------------------------------------------
+1. Ve a: https://tailscale.com/download
+2. Descarga el instalador para Windows.
+3. Ejecuta el instalador.
+4. Al terminar, el ícono de Tailscale aparece en la barra
+   de tareas.
+
+
+--------------------------------------------------------------
+PASO 2 — INICIAR SESIÓN
+--------------------------------------------------------------
+1. Clic en el ícono de Tailscale → "Log in".
+2. Usa la MISMA cuenta que usaste en PC_COUNTRY.
+3. Autoriza el dispositivo en el navegador.
+
+Tailscale asignará a tu laptop una IP del tipo 100.x.x.x.
+
+
+--------------------------------------------------------------
+PASO 3 — ACEPTAR LAS RUTAS ANUNCIADAS POR PC_COUNTRY
+--------------------------------------------------------------
+PC_COUNTRY anuncia la subred 192.168.0.0/24.
+Tu laptop debe aceptar esa ruta para poder llegar a la cámara.
+
+1. Abre PowerShell como ADMINISTRADOR.
+
+2. Ejecuta:
+
+   tailscale up --accept-routes
+
+   Esto hace que tu laptop use la ruta que PC_COUNTRY comparte.
+
+3. Verifica que la ruta esté activa:
+
+   tailscale status
+
+   Deberías ver PC-Country en la lista con estado "active".
+
+
+--------------------------------------------------------------
+PASO 4 — VERIFICAR CONECTIVIDAD CON LA CÁMARA
+--------------------------------------------------------------
+Una vez que ambas PCs estén en el Tailnet y PC_COUNTRY
+esté como subnet router, prueba desde tu laptop:
+
+Opción A — Ping a la cámara:
+   En PowerShell: ping 192.168.0.114
+   Resultado esperado: respuesta de 192.168.0.114
+
+Opción B — VLC:
+   Abre VLC → Red → pega:
+   rtsp://CountryERP:CountryERP123%23@192.168.0.114:554/stream1
+   rtsp://CountryERP:CountryERP123%23@192.168.0.114:554/stream1
+
+   Si el video se reproduce → ¡todo funciona!
+
+Opción C — Desde el backend FastAPI:
+   Inicia el backend y visita en el navegador:
+   http://localhost:8000/cameras/{id}/stream
+   (Primero debes crear una cámara en la BD y llamar /connect)
+
+
+--------------------------------------------------------------
+PASO 5 — FLUJO DE TRABAJO DIARIO
+--------------------------------------------------------------
+Cada vez que quieras trabajar con la cámara desde la universidad
+o cualquier otra red:
+
+1. Confirma que PC_COUNTRY esté encendida y Tailscale activo
+   (verde en la barra de tareas de esa PC).
+
+2. En tu laptop, verifica que Tailscale también esté conectado
+   (ícono verde).
+
+3. Inicia tu backend:
+   cd C:\Proyectos Univalle\CountryHipica\backend-Country
+   uvicorn app.main:app --reload
+
+4. Inicia tu frontend:
+   cd C:\Proyectos Univalle\CountryHipica\Frontend-Country\frontend-Country
+   npm run dev
+
+5. Abre el ERP → Sección "Monitoreo" → "Cámaras IP" → Conectar.
+
+
+--------------------------------------------------------------
+PASO 6 — CUANDO DESPLIEGUES EL BACKEND EN UN VPS
+--------------------------------------------------------------
+Cuando subas el backend a un VPS (Render, Railway, Hostinger):
+
+1. Instala Tailscale en el VPS:
+   (Ubuntu/Debian)
+   curl -fsSL https://tailscale.com/install.sh | sh
+   sudo tailscale up --accept-routes
+
+2. Inicia sesión con la MISMA cuenta Tailscale.
+
+3. El VPS quedará en el mismo Tailnet que PC_COUNTRY.
+
+4. El backend en el VPS podrá acceder a 192.168.0.114
+   exactamente igual que desde tu laptop.
+
+5. El frontend apuntará a la URL del VPS en lugar de
+   localhost:8000 — solo cambia API_BASE en cameraService.ts.
+
+
+--------------------------------------------------------------
+RESUMEN DE IPs IMPORTANTES
+--------------------------------------------------------------
+
+  Cámara Tapo      → 192.168.0.114  (LAN Country)
+  PC_COUNTRY       → 100.x.x.A   (IP Tailscale — ver "tailscale status")
+  PC_MISHEL        → 100.x.x.B   (IP Tailscale — ver "tailscale status")
+
+  La cámara SIEMPRE se accede por su IP local 192.168.0.114.
+  Tailscale enruta el tráfico transparentemente a través de PC_COUNTRY.
+  NO necesitas saber la IP Tailscale de PC_COUNTRY para nada.
+
+
+--------------------------------------------------------------
+TABLA DE ESTADO ESPERADO
+--------------------------------------------------------------
+
+  Tailscale en PC_COUNTRY:  ✅ Connected + subnet 192.168.0.0/24 activo
+  Tailscale en PC_MISHEL:   ✅ Connected + accept-routes activo
+  Backend FastAPI:           ✅ corriendo en localhost:8000 (o VPS)
+  Cámara accesible:          ✅ ping 192.168.0.114 responde
+
+
+--------------------------------------------------------------
+SOLUCIÓN DE PROBLEMAS
+--------------------------------------------------------------
+- "ping 192.168.0.114" no responde:
+  → Verifica que PC_COUNTRY esté encendida y Tailscale activo.
+  → Verifica que ejecutaste "tailscale up --accept-routes"
+    en esta laptop.
+  → En el Admin Console (login.tailscale.com/admin/machines)
+    confirma que la ruta 192.168.0.0/24 esté aprobada.
+
+- El stream se ve lento:
+  → Normal en WiFi. Conecta PC_COUNTRY por cable Ethernet
+    para mejor rendimiento.
+  → La calidad JPEG en camera_stream.py está en 75.
+    Puedes bajarla a 60 para reducir ancho de banda:
+    cv2.IMWRITE_JPEG_QUALITY, 60
+
+- Error "Connection refused" al llamar /cameras/{id}/stream:
+  → El backend no está corriendo.
+  → Verifica que no hay otro proceso usando el puerto 8000:
+    netstat -ano | findstr :8000
+
+- Tailscale pide re-autenticarse después de 90 días:
+  → En el Admin Console, en la máquina PC_COUNTRY,
+    deshabilita "Key expiry" para no tener que re-autenticar.
+
+==============================================================

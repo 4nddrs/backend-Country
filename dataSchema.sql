@@ -1,6 +1,20 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
+CREATE TABLE public.camera (
+  idCamera bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  name character varying NOT NULL,
+  ip character varying NOT NULL,
+  rtsp_port integer NOT NULL DEFAULT 554,
+  stream_path character varying NOT NULL DEFAULT '/stream1',
+  rtsp_user character varying NOT NULL,
+  rtsp_password character varying NOT NULL,
+  is_active boolean NOT NULL DEFAULT true,
+  fk_idOwner bigint NOT NULL,
+  CONSTRAINT camera_pkey PRIMARY KEY (idCamera),
+  CONSTRAINT camera_fk_idOwner_fkey FOREIGN KEY (fk_idOwner) REFERENCES public.owner(idOwner)
+);
 CREATE TABLE public.alpha_control (
   idAlphaControl bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),

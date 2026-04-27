@@ -39,9 +39,10 @@ from app.routers import (
     alpha_report,
     salary_payment,
     tip_payment,
-    horse_assignment, 
+    horse_assignment,
     telegram,
     dashboard,
+    camera,
 )
 
 if sys.platform == "win32":
@@ -131,6 +132,7 @@ app.include_router(tip_payment.router)
 app.include_router(horse_assignment.router)
 app.include_router(telegram.router)
 app.include_router(dashboard.router)
+app.include_router(camera.router)
 
 # === 🧪 Endpoint de prueba manual de notificaciones ===
 #@app.get("/test-notify")
