@@ -4,7 +4,7 @@ from app.supabase_client import get_supabase
 import asyncio
 import requests
 
-BOT_TOKEN = "8225256599:AAEWeT5H-LP069Gz631-1qBgDOyn6MwS5Zs"
+BOT_TOKEN = "7969340738:AAFGIA33avuHufxVWL_L0AXhP7lnDjjkKNY"
 BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 scheduler = BackgroundScheduler()

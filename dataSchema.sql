@@ -15,6 +15,15 @@ CREATE TABLE public.camera (
   CONSTRAINT camera_pkey PRIMARY KEY (idCamera),
   CONSTRAINT camera_fk_idOwner_fkey FOREIGN KEY (fk_idOwner) REFERENCES public.owner(idOwner)
 );
+CREATE TABLE public.horse_anomaly (
+  idAnomaly bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  detected_at timestamp with time zone NOT NULL DEFAULT now(),
+  anomaly_type character varying NOT NULL,
+  confidence numeric NOT NULL DEFAULT 0,
+  fk_idCamera bigint,
+  CONSTRAINT horse_anomaly_pkey PRIMARY KEY (idAnomaly),
+  CONSTRAINT horse_anomaly_fk_idCamera_fkey FOREIGN KEY (fk_idCamera) REFERENCES public.camera("idCamera")
+);
 CREATE TABLE public.alpha_control (
   idAlphaControl bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),

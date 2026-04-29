@@ -7,8 +7,18 @@ from app.supabase_client import get_supabase
 
 router = APIRouter(prefix="/telegram", tags=["Telegram"])
 
-BOT_TOKEN = "8225256599:AAEWeT5H-LP069Gz631-1qBgDOyn6MwS5Zs"
+BOT_TOKEN = "7969340738:AAFGIA33avuHufxVWL_L0AXhP7lnDjjkKNY"
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
+
+
+def run_async(coro):
+    """Ejecuta una coroutine desde un hilo sincrónico (handlers de telebot)."""
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
+
 
 # === /start ===
 @bot.message_handler(commands=["start", "help"])
@@ -16,7 +26,6 @@ def send_welcome(message):
     user_id = message.chat.id
     first_name = message.from_user.first_name or ""
 
-    # 🎨 Crear menú con emojis
     markup = types.InlineKeyboardMarkup(row_width=2)
     btn1 = types.InlineKeyboardButton("🧾 Ver medicamentos", callback_data="medicamentos")
     btn2 = types.InlineKeyboardButton("⚠️ Stock bajo / agotado", callback_data="bajo")
@@ -33,7 +42,7 @@ def send_welcome(message):
         parse_mode="Markdown",
     )
 
-    asyncio.run(save_telegram_chat(user_id))
+    run_async(save_telegram_chat(user_id))
 
 
 async def save_telegram_chat(chat_id: int):
@@ -52,6 +61,8 @@ async def save_telegram_chat(chat_id: int):
             uid = result.data[0]["uid"]
             await supabase.table("erp_user").update({"telegram_chat_id": chat_id}).eq("uid", uid).execute()
             print(f"✅ Veterinario vinculado: {uid} -> chat {chat_id}")
+        else:
+            print(f"⚠️ No se encontró usuario con rol 8 sin telegram_chat_id. chat_id recibido: {chat_id}")
     except Exception as e:
         print("❌ Error guardando chat_id:", e)
 
@@ -61,7 +72,7 @@ async def save_telegram_chat(chat_id: int):
 def callback_handler(call):
     filtro = call.data
     chat_id = call.message.chat.id
-    asyncio.run(enviar_medicamentos(chat_id, filtro=filtro))
+    run_async(enviar_medicamentos(chat_id, filtro=filtro))
 
 
 async def enviar_medicamentos(chat_id: int, filtro: str):
@@ -89,18 +100,14 @@ async def enviar_medicamentos(chat_id: int, filtro: str):
         dias_restantes = (fecha_venc - hoy).days if fecha_venc else None
         estado = "Activo ✅" if is_active else "Inactivo ❌"
 
-        # --- Filtros ---
         incluir = False
         if filtro == "medicamentos":
             incluir = True
         elif filtro == "bajo" and stock <= min_stock:
             incluir = True
-        elif filtro == "caducado":
-            if fecha_venc:
-                if dias_restantes <= 0:
-                    incluir = True  # vencido
-                elif dias_restantes <= 7:
-                    incluir = True  # por vencer en menos de una semana
+        elif filtro == "caducado" and fecha_venc:
+            if dias_restantes <= 7:
+                incluir = True
 
         if incluir:
             msg = (
@@ -111,7 +118,6 @@ async def enviar_medicamentos(chat_id: int, filtro: str):
             )
             mensajes.append(msg)
 
-    # Enviar resultados
     if not mensajes:
         texto = "✅ No se encontraron medicamentos para ese criterio."
     else:
@@ -131,8 +137,22 @@ async def telegram_webhook(request: Request):
     try:
         data = await request.json()
         update = telebot.types.Update.de_json(data)
-        asyncio.get_event_loop().run_in_executor(None, bot.process_new_updates, [update])
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, bot.process_new_updates, [update])
         print("✅ Mensaje recibido desde Telegram")
     except Exception as e:
         print("❌ Error procesando actualización de Telegram:", e)
     return {"ok": True}
+
+
+# === Registrar webhook con Telegram ===
+@router.get("/setup-webhook")
+async def setup_webhook(webhook_url: str):
+    """
+    Registra la URL del webhook con Telegram.
+    Llama a: GET /telegram/setup-webhook?webhook_url=https://tu-dominio.com/telegram/webhook
+    """
+    response = bot.set_webhook(url=webhook_url)
+    if response:
+        return {"ok": True, "message": f"Webhook registrado en: {webhook_url}"}
+    return {"ok": False, "message": "Error al registrar el webhook"}

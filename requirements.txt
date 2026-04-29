@@ -46,3 +46,4 @@ APScheduler==3.10.4
 pyTelegramBotAPI==4.29.1
 apscheduler
 opencv-python-headless
+ultralytics>=8.2.0
