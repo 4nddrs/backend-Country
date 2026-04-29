@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, Request
 import telebot
 from telebot import types
@@ -7,7 +8,7 @@ from app.supabase_client import get_supabase
 
 router = APIRouter(prefix="/telegram", tags=["Telegram"])
 
-BOT_TOKEN = "7969340738:AAFGIA33avuHufxVWL_L0AXhP7lnDjjkKNY"
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 
 
@@ -46,14 +47,13 @@ def send_welcome(message):
 
 
 async def save_telegram_chat(chat_id: int):
-    """Guarda el chat_id del veterinario con rol 8."""
+    """Guarda el chat_id del veterinario con rol 8 (actualiza aunque ya tenga uno)."""
     try:
         supabase = await get_supabase()
         result = await (
             supabase.table("erp_user")
             .select("uid")
             .eq("fk_idUserRole", 8)
-            .is_("telegram_chat_id", "null")
             .limit(1)
             .execute()
         )
@@ -62,7 +62,7 @@ async def save_telegram_chat(chat_id: int):
             await supabase.table("erp_user").update({"telegram_chat_id": chat_id}).eq("uid", uid).execute()
             print(f"✅ Veterinario vinculado: {uid} -> chat {chat_id}")
         else:
-            print(f"⚠️ No se encontró usuario con rol 8 sin telegram_chat_id. chat_id recibido: {chat_id}")
+            print(f"⚠️ No se encontró usuario con rol 8. chat_id recibido: {chat_id}")
     except Exception as e:
         print("❌ Error guardando chat_id:", e)
 
