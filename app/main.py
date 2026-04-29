@@ -53,7 +53,11 @@ app = FastAPI(title="backend-Country-API")
 # ⚡ Middleware CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permite cualquier dominio (para pruebas)
+    allow_origins=[
+        "https://countryclub.doc-ia.cloud",
+        "http://localhost:5173",
+        "http://localhost:4173",
+    ],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
