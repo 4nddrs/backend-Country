@@ -1,3 +1,4 @@
+import os
 from threading import Thread
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -75,8 +76,8 @@ async def on_startup():
         print("❌ Error de conexión con Supabase:", str(e))
 
     # 🚀 Configurar el webhook de Telegram automáticamente
-    BOT_TOKEN = "8225256599:AAEWeT5H-LP069Gz631-1qBgDOyn6MwS5Zs"
-    WEBHOOK_URL = "https://backend-country-nnxe.onrender.com/telegram/webhook"
+    BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    WEBHOOK_URL = os.getenv("TELEGRAM_WEBHOOK_URL", "https://api.countryclub.doc-ia.cloud/telegram/webhook")
 
     try:
         resp = requests.get(
