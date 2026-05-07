@@ -10,6 +10,9 @@ router = APIRouter(prefix="/telegram", tags=["Telegram"])
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 
+SEPARADOR = "━━━━━━━━━━━━━━━━━━"
+TG_LIMIT = 3500  # margen seguro bajo el limite de 4096 de Telegram
+
 
 def _parse_fecha(valor):
     if isinstance(valor, str):
@@ -18,6 +21,18 @@ def _parse_fecha(valor):
         except Exception:
             return None
     return valor
+
+
+def _esc(texto) -> str:
+    """Escapa caracteres reservados de HTML para Telegram."""
+    if texto is None:
+        return ""
+    return (
+        str(texto)
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+    )
 
 
 def _calcular_estado(fecha_venc, notify_days_before, is_active_db):
@@ -41,6 +56,33 @@ def _calcular_estado(fecha_venc, notify_days_before, is_active_db):
     return ("Activo" if is_active_db else "Inactivo"), dias_restantes
 
 
+def _icono_estado(estado: str) -> str:
+    return {
+        "Activo": "🟢",
+        "Por vencer": "🟡",
+        "Vencido": "🔴",
+        "Inactivo": "⚫",
+    }.get(estado, "⚪")
+
+
+def _icono_stock(stock: int, min_stock: int) -> str:
+    if stock == 0:
+        return "🔴"
+    if stock <= min_stock:
+        return "🟠"
+    return "🟢"
+
+
+def _texto_dias(dias_restantes):
+    if dias_restantes is None:
+        return ""
+    if dias_restantes < 0:
+        return f" (hace {-dias_restantes} día{'s' if -dias_restantes != 1 else ''})"
+    if dias_restantes == 0:
+        return " (vence hoy)"
+    return f" (en {dias_restantes} día{'s' if dias_restantes != 1 else ''})"
+
+
 def _sincronizar_estado_db(supabase, medicines):
     """Marca como inactivos en la BD los medicamentos vencidos para que el frontend tambien lo refleje."""
     hoy = date.today()
@@ -59,26 +101,87 @@ def _sincronizar_estado_db(supabase, medicines):
                 print(f"Error actualizando medicina {med.get('idMedicine')}: {e}")
 
 
+def _build_menu_markup() -> types.InlineKeyboardMarkup:
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(types.InlineKeyboardButton("🧾 Ver medicamentos", callback_data="medicamentos"))
+    markup.add(
+        types.InlineKeyboardButton("⚠️ Stock bajo", callback_data="bajo"),
+        types.InlineKeyboardButton("⏰ Por vencer", callback_data="caducado"),
+    )
+    return markup
+
+
+def _send_menu(chat_id: int, encabezado: str = "📋 <b>¿Qué deseas consultar?</b>"):
+    """Reenvía el menú principal para que el usuario no tenga que volver al inicio."""
+    bot.send_message(
+        chat_id,
+        encabezado,
+        reply_markup=_build_menu_markup(),
+        parse_mode="HTML",
+    )
+
+
+def _enviar_chunked(chat_id: int, texto: str):
+    """Envia el texto respetando el limite de Telegram, partiendo por separadores."""
+    if len(texto) <= TG_LIMIT:
+        bot.send_message(chat_id, texto, parse_mode="HTML", disable_web_page_preview=True)
+        return
+
+    bloques = texto.split(f"\n{SEPARADOR}\n")
+    buffer = ""
+    for i, bloque in enumerate(bloques):
+        pieza = bloque if i == 0 else f"\n{SEPARADOR}\n{bloque}"
+        if len(buffer) + len(pieza) > TG_LIMIT and buffer:
+            bot.send_message(chat_id, buffer, parse_mode="HTML", disable_web_page_preview=True)
+            buffer = bloque
+        else:
+            buffer += pieza
+    if buffer:
+        bot.send_message(chat_id, buffer, parse_mode="HTML", disable_web_page_preview=True)
+
+
+def _format_medicamento(med: dict) -> tuple[str, str]:
+    """Devuelve (estado, texto_html) para un medicamento."""
+    nombre = med.get("name", "Sin nombre")
+    stock = med.get("stock", 0) or 0
+    min_stock = med.get("minStock", 0) or 0
+    fecha_venc = _parse_fecha(med.get("boxExpirationDate"))
+    notify_days = med.get("notifyDaysBefore", 1)
+    is_active_db = med.get("isActive", True)
+    tipo = med.get("medicationType")
+
+    estado, dias = _calcular_estado(fecha_venc, notify_days, is_active_db)
+    icono_est = _icono_estado(estado)
+    icono_stk = _icono_stock(stock, min_stock)
+
+    fecha_txt = fecha_venc.strftime("%d/%m/%Y") if fecha_venc else "Sin fecha"
+    dias_txt = _texto_dias(dias) if fecha_venc else ""
+    tipo_txt = f"\n  💊 <i>{_esc(tipo)}</i>" if tipo else ""
+
+    texto = (
+        f"{icono_est} <b>{_esc(nombre)}</b>{tipo_txt}\n"
+        f"  {icono_stk} Stock: <b>{stock}</b> / mín {min_stock}\n"
+        f"  📅 Vence: <b>{fecha_txt}</b>{dias_txt}\n"
+        f"  {icono_est} Estado: <b>{estado}</b>"
+    )
+    return estado, texto
+
+
 # === /start ===
-@bot.message_handler(commands=["start", "help"])
+@bot.message_handler(commands=["start", "help", "menu"])
 def send_welcome(message):
     user_id = message.chat.id
     first_name = message.from_user.first_name or ""
 
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    btn1 = types.InlineKeyboardButton("🧾 Ver medicamentos", callback_data="medicamentos")
-    btn2 = types.InlineKeyboardButton("⚠️ Stock bajo / agotado", callback_data="bajo")
-    btn3 = types.InlineKeyboardButton("⏰ Por vencer / vencidos", callback_data="caducado")
-    markup.add(btn1)
-    markup.add(btn2, btn3)
-
     bot.send_message(
         message.chat.id,
-        f"👋 ¡Hola {first_name or 'Veterinario'}!\n"
-        "Tu chat ha sido vinculado con el sistema del *Country Club ERP*.\n\n"
-        "Selecciona una opción del menú 👇",
-        reply_markup=markup,
-        parse_mode="Markdown",
+        (
+            f"👋 ¡Hola <b>{_esc(first_name) or 'Veterinario'}</b>!\n"
+            "Tu chat fue vinculado al sistema del <b>Country Club ERP</b>.\n\n"
+            "Selecciona una opción del menú 👇"
+        ),
+        reply_markup=_build_menu_markup(),
+        parse_mode="HTML",
     )
 
     save_telegram_chat(user_id)
@@ -115,7 +218,8 @@ def callback_handler(call):
         enviar_medicamentos(chat_id, filtro=filtro)
     except Exception as e:
         print(f"❌ Error en callback_handler: {e}")
-        bot.send_message(chat_id, f"❌ Error al obtener datos: {e}")
+        bot.send_message(chat_id, f"❌ Error al obtener datos: {_esc(e)}", parse_mode="HTML")
+        _send_menu(chat_id)
 
 
 def enviar_medicamentos(chat_id: int, filtro: str):
@@ -127,22 +231,22 @@ def enviar_medicamentos(chat_id: int, filtro: str):
         print(f"📋 Medicamentos encontrados: {len(medicines)}")
     except Exception as e:
         print(f"❌ Error consultando Supabase: {e}")
-        bot.send_message(chat_id, f"❌ Error consultando base de datos: {e}")
+        bot.send_message(chat_id, f"❌ Error consultando base de datos: {_esc(e)}", parse_mode="HTML")
+        _send_menu(chat_id)
         return
 
     _sincronizar_estado_db(supabase, medicines)
 
-    mensajes = []
+    bloques = []
+    contador = {"Activo": 0, "Por vencer": 0, "Vencido": 0, "Inactivo": 0}
 
     for med in medicines:
-        nombre = med.get("name", "Sin nombre")
-        stock = med.get("stock", 0)
-        min_stock = med.get("minStock", 0)
+        stock = med.get("stock", 0) or 0
+        min_stock = med.get("minStock", 0) or 0
         fecha_venc = _parse_fecha(med.get("boxExpirationDate"))
         notify_days = med.get("notifyDaysBefore", 1)
         is_active_db = med.get("isActive", True)
-
-        estado, _ = _calcular_estado(fecha_venc, notify_days, is_active_db)
+        estado, _dias = _calcular_estado(fecha_venc, notify_days, is_active_db)
 
         incluir = False
         if filtro == "medicamentos":
@@ -153,25 +257,33 @@ def enviar_medicamentos(chat_id: int, filtro: str):
             incluir = True
 
         if incluir:
-            msg = (
-                f"Medicamento: {nombre}\n"
-                f"Stock: {stock}/{min_stock}\n"
-                f"Vence: {fecha_venc if fecha_venc else 'Sin fecha'}\n"
-                f"Estado: {estado}"
-            )
-            mensajes.append(msg)
+            estado_med, texto = _format_medicamento(med)
+            bloques.append(texto)
+            contador[estado_med] = contador.get(estado_med, 0) + 1
 
-    if not mensajes:
-        texto = "No se encontraron medicamentos para ese criterio."
+    titulos = {
+        "medicamentos": ("🧾", "Lista de medicamentos"),
+        "bajo": ("⚠️", "Stock bajo o agotado"),
+        "caducado": ("⏰", "Vencidos / próximos a vencer"),
+    }
+    icono_t, titulo = titulos.get(filtro, ("📋", "Resultados"))
+
+    if not bloques:
+        bot.send_message(
+            chat_id,
+            f"{icono_t} <b>{titulo}</b>\n\nℹ️ No se encontraron medicamentos para ese criterio.",
+            parse_mode="HTML",
+        )
     else:
-        titulos = {
-            "medicamentos": "Lista de medicamentos:",
-            "bajo": "Medicamentos con stock bajo o agotado:",
-            "caducado": "Medicamentos vencidos o por vencer (proximos 7 dias):",
-        }
-        texto = titulos[filtro] + "\n\n" + "\n\n".join(mensajes)
+        resumen = (
+            f"{icono_t} <b>{titulo}</b>\n"
+            f"<i>Total: {len(bloques)} medicamento(s)</i>\n"
+            f"{SEPARADOR}\n"
+        )
+        cuerpo = f"\n{SEPARADOR}\n".join(bloques)
+        _enviar_chunked(chat_id, resumen + cuerpo)
 
-    bot.send_message(chat_id, texto)
+    _send_menu(chat_id, "👇 <b>Volver al menú</b>")
 
 
 # === Webhook principal ===
