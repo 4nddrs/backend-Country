@@ -1,10 +1,9 @@
 import os
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, BackgroundTasks
 import telebot
 from telebot import types
-import asyncio
 from datetime import date
-from app.supabase_client import get_supabase
+from app.supabase_client import get_supabase_admin_client
 
 router = APIRouter(prefix="/telegram", tags=["Telegram"])
 
@@ -12,13 +11,52 @@ BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 
 
-def run_async(coro):
-    """Ejecuta una coroutine desde un hilo sincrónico (handlers de telebot)."""
-    loop = asyncio.new_event_loop()
+def _parse_fecha(valor):
+    if isinstance(valor, str):
+        try:
+            return date.fromisoformat(valor)
+        except Exception:
+            return None
+    return valor
+
+
+def _calcular_estado(fecha_venc, notify_days_before, is_active_db):
+    """Estado real del medicamento segun la fecha de caducidad."""
+    hoy = date.today()
+    if fecha_venc is None:
+        return ("Activo" if is_active_db else "Inactivo"), None
+
+    dias_restantes = (fecha_venc - hoy).days
+    if dias_restantes < 0:
+        return "Vencido", dias_restantes
+
     try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
+        notify = int(notify_days_before) if notify_days_before is not None else 1
+    except (TypeError, ValueError):
+        notify = 1
+    dias_alerta = 7 if notify <= 1 else notify * 7
+
+    if dias_restantes <= dias_alerta:
+        return "Por vencer", dias_restantes
+    return ("Activo" if is_active_db else "Inactivo"), dias_restantes
+
+
+def _sincronizar_estado_db(supabase, medicines):
+    """Marca como inactivos en la BD los medicamentos vencidos para que el frontend tambien lo refleje."""
+    hoy = date.today()
+    for med in medicines:
+        fecha_venc = _parse_fecha(med.get("boxExpirationDate"))
+        if not fecha_venc:
+            continue
+        if fecha_venc < hoy and (med.get("isActive") is None or med.get("isActive") is True):
+            try:
+                supabase.table("medicine").update(
+                    {"isActive": False, "expiryStatus": "Vencido"}
+                ).eq("idMedicine", med["idMedicine"]).execute()
+                med["isActive"] = False
+                med["expiryStatus"] = "Vencido"
+            except Exception as e:
+                print(f"Error actualizando medicina {med.get('idMedicine')}: {e}")
 
 
 # === /start ===
@@ -43,14 +81,14 @@ def send_welcome(message):
         parse_mode="Markdown",
     )
 
-    run_async(save_telegram_chat(user_id))
+    save_telegram_chat(user_id)
 
 
-async def save_telegram_chat(chat_id: int):
-    """Guarda el chat_id del veterinario con rol 8 (actualiza aunque ya tenga uno)."""
+def save_telegram_chat(chat_id: int):
+    """Guarda el chat_id del veterinario con rol 8 usando el cliente sincrono."""
     try:
-        supabase = await get_supabase()
-        result = await (
+        supabase = get_supabase_admin_client()
+        result = (
             supabase.table("erp_user")
             .select("uid")
             .eq("fk_idUserRole", 8)
@@ -59,7 +97,7 @@ async def save_telegram_chat(chat_id: int):
         )
         if result.data:
             uid = result.data[0]["uid"]
-            await supabase.table("erp_user").update({"telegram_chat_id": chat_id}).eq("uid", uid).execute()
+            supabase.table("erp_user").update({"telegram_chat_id": chat_id}).eq("uid", uid).execute()
             print(f"✅ Veterinario vinculado: {uid} -> chat {chat_id}")
         else:
             print(f"⚠️ No se encontró usuario con rol 8. chat_id recibido: {chat_id}")
@@ -72,74 +110,78 @@ async def save_telegram_chat(chat_id: int):
 def callback_handler(call):
     filtro = call.data
     chat_id = call.message.chat.id
-    run_async(enviar_medicamentos(chat_id, filtro=filtro))
+    bot.answer_callback_query(call.id)
+    try:
+        enviar_medicamentos(chat_id, filtro=filtro)
+    except Exception as e:
+        print(f"❌ Error en callback_handler: {e}")
+        bot.send_message(chat_id, f"❌ Error al obtener datos: {e}")
 
 
-async def enviar_medicamentos(chat_id: int, filtro: str):
-    """Envía al chat la lista de medicamentos según el filtro."""
-    supabase = await get_supabase()
-    result = await supabase.table("medicine").select("*").execute()
-    medicines = result.data or []
+def enviar_medicamentos(chat_id: int, filtro: str):
+    """Envía al chat la lista de medicamentos según el filtro (todo sincrono, sin asyncio)."""
+    try:
+        supabase = get_supabase_admin_client()
+        result = supabase.table("medicine").select("*").execute()
+        medicines = result.data or []
+        print(f"📋 Medicamentos encontrados: {len(medicines)}")
+    except Exception as e:
+        print(f"❌ Error consultando Supabase: {e}")
+        bot.send_message(chat_id, f"❌ Error consultando base de datos: {e}")
+        return
 
-    hoy = date.today()
+    _sincronizar_estado_db(supabase, medicines)
+
     mensajes = []
 
     for med in medicines:
         nombre = med.get("name", "Sin nombre")
         stock = med.get("stock", 0)
         min_stock = med.get("minStock", 0)
-        fecha_venc = med.get("boxExpirationDate")
-        is_active = med.get("isActive", True)
+        fecha_venc = _parse_fecha(med.get("boxExpirationDate"))
+        notify_days = med.get("notifyDaysBefore", 1)
+        is_active_db = med.get("isActive", True)
 
-        if isinstance(fecha_venc, str):
-            try:
-                fecha_venc = date.fromisoformat(fecha_venc)
-            except Exception:
-                fecha_venc = None
-
-        dias_restantes = (fecha_venc - hoy).days if fecha_venc else None
-        estado = "Activo ✅" if is_active else "Inactivo ❌"
+        estado, _ = _calcular_estado(fecha_venc, notify_days, is_active_db)
 
         incluir = False
         if filtro == "medicamentos":
             incluir = True
         elif filtro == "bajo" and stock <= min_stock:
             incluir = True
-        elif filtro == "caducado" and fecha_venc:
-            if dias_restantes <= 7:
-                incluir = True
+        elif filtro == "caducado" and estado in ("Vencido", "Por vencer"):
+            incluir = True
 
         if incluir:
             msg = (
-                f"💊 *{nombre}*\n"
-                f"📦 Stock: {stock}/{min_stock}\n"
-                f"📅 Vence: {fecha_venc if fecha_venc else 'Sin fecha'}\n"
-                f"🔖 Estado: {estado}"
+                f"Medicamento: {nombre}\n"
+                f"Stock: {stock}/{min_stock}\n"
+                f"Vence: {fecha_venc if fecha_venc else 'Sin fecha'}\n"
+                f"Estado: {estado}"
             )
             mensajes.append(msg)
 
     if not mensajes:
-        texto = "✅ No se encontraron medicamentos para ese criterio."
+        texto = "No se encontraron medicamentos para ese criterio."
     else:
-        titulo = {
-            "medicamentos": "🧾 *Lista de medicamentos:*",
-            "bajo": "⚠️ *Medicamentos con stock bajo o agotado:*",
-            "caducado": "⏰ *Medicamentos vencidos o por vencer:*",
-        }[filtro]
-        texto = titulo + "\n\n" + "\n\n".join(mensajes)
+        titulos = {
+            "medicamentos": "Lista de medicamentos:",
+            "bajo": "Medicamentos con stock bajo o agotado:",
+            "caducado": "Medicamentos vencidos o por vencer (proximos 7 dias):",
+        }
+        texto = titulos[filtro] + "\n\n" + "\n\n".join(mensajes)
 
-    bot.send_message(chat_id, texto, parse_mode="Markdown")
+    bot.send_message(chat_id, texto)
 
 
 # === Webhook principal ===
 @router.post("/webhook")
-async def telegram_webhook(request: Request):
+async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
+    """Procesa la actualizacion en background para responder a Telegram al instante."""
     try:
         data = await request.json()
         update = telebot.types.Update.de_json(data)
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, bot.process_new_updates, [update])
-        print("✅ Mensaje recibido desde Telegram")
+        background_tasks.add_task(bot.process_new_updates, [update])
     except Exception as e:
         print("❌ Error procesando actualización de Telegram:", e)
     return {"ok": True}

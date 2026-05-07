@@ -33,7 +33,6 @@ async def verificar_medicamentos():
         min_stock = med.get("minStock", 0)
         fecha_venc = med.get("boxExpirationDate")
         notify = med.get("notifyDaysBefore", 1)
-        is_active = med.get("isActive", True)
 
         # Convertir fecha si es string
         if isinstance(fecha_venc, str):
@@ -42,7 +41,6 @@ async def verificar_medicamentos():
             except Exception:
                 fecha_venc = None
 
-        # 🧮 Calcular alertas
         # 1. Stock bajo o agotado
         if stock <= min_stock:
             estado_stock = "agotado" if stock == 0 else "bajo"
@@ -50,12 +48,28 @@ async def verificar_medicamentos():
                 f"⚠️ *Alerta de Stock*:\nEl medicamento *{nombre}* tiene stock {estado_stock} ({stock}/{min_stock})."
             )
 
-        # 2. Próximo a vencer
+        # 2. Vencido o proximo a vencer + sincronizar estado en BD
         if fecha_venc:
-            dias_antes = 7 if notify == 1 else notify * 7
-            fecha_alerta = fecha_venc - timedelta(days=dias_antes)
             dias_restantes = (fecha_venc - hoy).days
-            if hoy >= fecha_alerta and hoy <= fecha_venc:
+            try:
+                notify_int = int(notify) if notify is not None else 1
+            except (TypeError, ValueError):
+                notify_int = 1
+            dias_antes = 7 if notify_int <= 1 else notify_int * 7
+            fecha_alerta = fecha_venc - timedelta(days=dias_antes)
+
+            if dias_restantes < 0:
+                mensajes.append(
+                    f"⛔ *Medicamento vencido*:\n*{nombre}* venció el {fecha_venc} (hace {-dias_restantes} día(s))."
+                )
+                if med.get("isActive") is None or med.get("isActive") is True:
+                    try:
+                        await supabase.table("medicine").update(
+                            {"isActive": False, "expiryStatus": "Vencido"}
+                        ).eq("idMedicine", med["idMedicine"]).execute()
+                    except Exception as e:
+                        print(f"❌ Error actualizando estado del medicamento {med.get('idMedicine')}: {e}")
+            elif hoy >= fecha_alerta:
                 mensajes.append(
                     f"⚠️ *Medicamento por vencer*:\n*{nombre}* vence el {fecha_venc} (en {dias_restantes} día(s))."
                 )
