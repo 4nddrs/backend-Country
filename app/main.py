@@ -8,6 +8,8 @@ import asyncio
 import sys
 from app.scheduler import start_scheduler
 from app.routers import telegram
+from app.routers.telegram import bot as telegram_bot
+from app.supabase_client import get_supabase_admin_client
 from app.routers import (
     employee,
     employee_position,
@@ -74,6 +76,21 @@ async def on_startup():
         print("✅ Conexión con Supabase exitosa")
     except Exception as e:
         print("❌ Error de conexión con Supabase:", str(e))
+
+    # 🔥 Pre-warm del cliente admin de Supabase y la sesion HTTP de telebot
+    # (asi el primer /start no paga el costo de cold-start: TLS handshake + init).
+    try:
+        admin_client = get_supabase_admin_client()
+        admin_client.table("employee_position").select("idEmployeePosition").limit(1).execute()
+        print("✅ Cliente Supabase admin pre-calentado")
+    except Exception as e:
+        print("⚠️ No se pudo pre-calentar Supabase admin:", str(e))
+
+    try:
+        telegram_bot.get_me()
+        print("✅ Sesion de Telegram pre-calentada")
+    except Exception as e:
+        print("⚠️ No se pudo pre-calentar telebot:", str(e))
 
     # 🚀 Configurar el webhook de Telegram automáticamente
     BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
